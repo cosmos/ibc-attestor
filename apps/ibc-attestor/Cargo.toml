@@ -1,0 +1,85 @@
+[package]
+name = "ibc-attestor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[dependencies]
+solana-ibc-types   = { workspace = true, default-features = false } 
+
+
+alloy = { workspace = true, default-features = false, features = [
+    "consensus",
+    "serde",
+    "eips",
+    "sol-types",
+    "transports",
+] }
+alloy-primitives = { workspace = true, default-features = false, features = [
+    "serde",
+] }
+alloy-sol-types = { workspace = true, default-features = false, features = [
+    "json",
+] }
+alloy-signer-local = { workspace = true, default-features = false }
+alloy-signer = { workspace = true, default-features = false }
+alloy-rpc-client = { workspace = true, default-features = false, features = [
+    "reqwest",
+] }
+alloy-network = { workspace = true, default-features = false }
+alloy-provider = { workspace = true, default-features = false, features = [
+    "reqwest",
+] }
+alloy-contract = { workspace = true, default-features = false }
+
+tendermint-rpc = { workspace = true, features = ["http-client"] }
+tendermint = { workspace = true, features = ["std"] }
+
+borsh = { workspace = true, default-features = false, features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, default-features = true }
+sha2 = { workspace = true, default-features = false }
+sha3 = { workspace = true, default-features = false }
+toml = { workspace = true, default-features = true }
+hex = { workspace = true, default-features = true }
+
+solana-client = { workspace = true }
+solana-commitment-config = { workspace = true, default-features = false }
+solana-sdk = { workspace = true }
+
+anyhow = { workspace = true, default-features = true, features = ["backtrace"] }
+thiserror = { workspace = true, default-features = false }
+indexmap = { workspace = true, default-features = false }
+url = { workspace = true, features = ["std"] }
+
+clap = { workspace = true, default-features = false, features = ["derive"] }
+
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tower-http = { workspace = true, features = ["trace"] }
+tonic = { workspace = true, default-features = true }
+tonic-reflection = { workspace = true, default-features = true }
+prost = { workspace = true, default-features = true }
+futures = { workspace = true, default-features = true }
+async-trait = { workspace = true }
+
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = [
+    "env-filter",
+    "fmt",
+    "json",
+    "time",
+] }
+tracing-opentelemetry = { workspace = true }
+opentelemetry = { workspace = true, features = ["trace"] }
+opentelemetry_sdk = { workspace = true, features = ["rt-tokio"] }
+
+ethereum-keys = { workspace = true, features = ["signer", "signer-local"] }
+ibc-eureka-solidity-types = { workspace = true, default-features = true, features = [
+    "rpc",
+] }
+ibc-eureka-utils = { workspace = true, default-features = true }
+
+[build-dependencies]
+tonic-build = { workspace = true, default-features = true }
