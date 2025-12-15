@@ -1,0 +1,71 @@
+SOURCE-AVAILABLE INSPECTION LICENSE v1.0
+
+Copyright © 2025 Cosmos Labs US Inc. — All rights reserved.
+
+1. Grant of Rights
+
+Subject to the terms of this License, Cosmos Labs grants Licensee a non-exclusive, non-transferable, non-sublicensable, revocable license solely to:
+
+(1) inspect the source code for the purpose of evaluating security vulnerabilities, and
+(2) inspect the source code to assess its appropriateness for potential licensed use.
+
+These are the only permitted activities. No licence fee is payable.
+
+2. Restrictions
+
+Except for the limited inspection rights in Section 1, no other rights are granted. Unless Licensee has entered into a separate, paid Enterprise License Agreement with Cosmos Labs, Licensee MAY NOT:
+
+(1) use the software for any purpose (commercial, internal, academic, research, or otherwise);
+(2) run, compile, execute, deploy, or test the software in any environment;
+(3) modify or prepare derivative works;
+(4) copy or reproduce the software, in whole or in part;
+(5) distribute, sublicense, publish, or make the software available to third parties;
+(6) use the software to train or fine-tune AI systems, or incorporate it into datasets;
+(7) reverse engineer, decompile, or disassemble the software except as strictly necessary for the inspection rights in Section 1.
+
+Any action not expressly permitted in Section 1 is strictly prohibited.
+
+3. Enterprise License Required for Any Use
+
+Any form of use, operation, modification, distribution, integration, or deployment of the software, beyond the limited inspection rights, requires a separate paid Enterprise License Agreement with Cosmos Labs. No rights to use the software are implied or granted by estoppel, exhaustion, or otherwise.
+
+4. Confidentiality
+
+In this License "Confidential Information" will include the software and all related materials and any other information which is likely to be or would be assumed by a reasonable businessperson to be confidential.
+
+Each of the Parties agrees that it:
+
+(1) will not, without the prior written consent of the other Party, use the Confidential Information other than as necessary to fulfil its obligations under this License;
+(2) disclose the Confidential Information it has or acquires about the other Party to any person; and
+(3) will use commercially reasonable efforts to prevent the use or disclosure of Confidential Information.
+
+The confidentiality obligations do not apply to:
+
+(1) any information which is required to be disclosed pursuant to any applicable laws or to any competent governmental or statutory authority or pursuant to rules or regulations of any relevant regulatory, administrative or supervisory body (including, without limitation, any relevant stock exchange or securities council);
+(2) any information which is required to be disclosed pursuant to any legal process issued by any court or tribunal;
+(3) any information which becomes generally known to the public, other than by reason of any wilful or negligent act or omission of such Party or any of their respective representatives;
+(4) any information disclosed by any Party to their respective bankers, financial advisers, consultants and legal or other advisers for the purpose of or in connection with this License.
+
+In the event that any disclosure of Confidential Information is required pursuant to sub-clauses (a) or (b), the Party making the disclosure will, to the extent permitted by law, promptly inform the other Parties of such required disclosure, consult with the other Parties in advance as to the form, content and timing of such disclosure, and reasonably cooperate with such other Parties to afford such other Parties opportunity to resist disclosure or obtain a protective order or similar relief to limit the disclosure of such Confidential Information.
+
+5. Ownership
+
+Cosmos Labs retains all rights, title and interest in and to the software, including all Intellectual Property rights. No ownership rights are transferred to the Licensee.
+
+For the purpose of this clause “Intellectual Property” means all intellectual property and all related rights including but not limited to any and all patents, trademarks, service marks, copyrights (including copyright in relation to source code), database rights, moral rights, rights in a design, know-how, confidential information and all or any other intellectual or industrial property rights, whether or not registered or capable of registration and wherever subsisting in the world, together with all or any goodwill relating or attaching thereto which is created, brought into existence, acquired, used or intended to be used.
+
+6. Disclaimer of Warranty
+
+THE SOFTWARE IS PROVIDED “AS IS,” WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. LICENSEE BEARS ALL RISKS ARISING FROM INSPECTION.
+
+7. Limitation of Liability
+
+COSMOS LABS SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING OUT OF OR RELATED TO THIS LICENSE OR THE SOFTWARE, INCLUDING WITHOUT LIMITATION ANY INDIRECT, INCIDENTAL, CONSEQUENTIAL, OR SPECIAL DAMAGES.
+
+8. Termination
+
+This License automatically terminates if Licensee breaches any term of this License, or at any time by Cosmos Labs via written notice, or withdrawal of the software from the repository. Upon termination, Licensee must immediately destroy all copies of the software in their possession.
+
+9. Governing Law
+
+This License will be governed by and construed in accordance with the laws of the State of Delaware. The courts located in Delaware will have exclusive jurisdiction over any disputes arising from or relating to this License.
