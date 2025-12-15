@@ -1,34 +1,118 @@
-# ibc-attestor
+# IBC Attestor Architecture
 
-For architecture details, see the system diagram below or read `ARCHITECTURE.md`.
+## Overview
 
-## System diagram
-![IBC system diagram](docs/system-diagram.png)
+The IBC Attestor is a lightweight, blockchain-agnostic attestation service that provides cryptographically signed attestations of blockchain state for IBC cross-chain communication. It monitors blockchain networks and produces signed attestations that can be verified by on-chain light clients.
 
-- Blue = on-chain contracts (EVM), Purple = IBC/SDK modules, Orange = off-chain infrastructure, dashed arrows = proofs/verification.
+For the broader interop picture and component links, see `docs/interop.md`.
 
-## Components and code links
+**Key Features:**
+- Multi-chain support via pluggable adapter pattern (EVM, Solana, Cosmos)
+- Flexible signing (local keystore or remote HSM/KMS)
+- gRPC API for attestation requests
+- Concurrent packet validation
 
-**On-chain: Modules**
-- Core IBC and GMP modules use ibc-go: [cosmos/ibc-go](https://github.com/cosmos/ibc-go/tree/main/modules) (core stack, ICS26 router, ICS27/ICA for GMP, callbacks middleware).
-- Attestor light client for Cosmos SDK chains: [cosmos/ibc-go attestor light client](https://github.com/cosmos/ibc-go/tree/main/modules/light-clients/attestations).
-- Token Factory (chain application layer) consumes IBC packets for mint/burn; it sits above the ibc-go stack on the Cosmos chain.
+## System Context
 
-**On-chain: Contracts**
-- IBC stack (ICS26 router, callbacks, GMP, storage) and application contracts (e.g., IFT/token logic) are in [cosmos/solidity-ibc-eureka](https://github.com/cosmos/solidity-ibc-eureka/tree/main/contracts).
-- Attestor light client for EVM lives in [cosmos/solidity-ibc-eureka](https://github.com/cosmos/solidity-ibc-eureka/tree/main/packages/attestor/light-client) and the Solidity light-client interfaces in `contracts/light-clients/`.
+```
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│  Attestor   │─────▶│ Proof API   │─────▶│Light Client │
+│  Service    │      │             │      │             │
+└─────────────┘      └─────────────┘      └─────────────┘
+      │                     │                     │
+ Signs state &       Collects m-of-n       Verifies sigs
+ packet data        signatures with        & updates IBC
+                   quorum validation           state
+```
 
-**Off-chain: Attestation Service**
-- This repo: [cosmos/ibc-attestor](https://github.com/cosmos/ibc-attestor) (Rust service in `apps/ibc-attestor/`).
+The attestor is one node in an m-of-n multi-signature system. Multiple independent attestors provide signatures that are aggregated and verified by on-chain light clients.
 
-**Off-chain: Proof API**
-- gRPC/Proof API: `proto/ibc_attestor/ibc_attestor.proto` defines `StateAttestation`, `PacketAttestation`, and `LatestHeight`.
+## Architecture
 
-**Off-chain: Relayer**
-- Signature aggregation plus relaying lives in [cosmos/solidity-ibc-eureka](https://github.com/cosmos/solidity-ibc-eureka/tree/main/programs/relayer) with shared proof builders in `packages/relayer/`.
-- The relayer queries the AttestationService, enforces quorum, assembles proofs, and submits them to both chains.
+### Component Structure
 
-## High-level flow
-- Attestors watch the source chain, sign headers and packet commitments, and expose them via the Proof API.
-- The relayer fetches and aggregates signatures, then submits proofs to the EVM light client and the Cosmos chain attestor light client.
-- The on-chain IBC stacks (Solidity and ibc-go) verify the proofs, update light clients, and route packets to the Token Factory or IFT application logic.
+```
+┌────────────────────────────────────────┐
+│           Attestor Binary              │
+│  ┌──────────────────────────────────┐  │
+│  │         gRPC Server              │  │
+│  │  - AttestationService            │  │
+│  │  - Reflection API                │  │
+│  │  - Logging & Tracing             │  │
+│  └────────┬──────────────┬──────────┘  │
+│           │              │             │
+│  ┌────────▼─────┐  ┌──── ▼─────────┐   │
+│  │ Attestation  │  │    Signer     │   │
+│  │    Logic     │  │ - Local       │   │
+│  │ - State      │  │ - Remote      │   │
+│  │ - Packet     │  └───────────────┘   │
+│  └────────┬─────┘                      │
+│  ┌────────▼─────┐                      │
+│  │   Adapter    │                      │
+│  │ - EVM        │                      │
+│  │ - Solana     │                      │
+│  │ - Cosmos     │                      │
+│  └──────────────┘                      │
+└────────────────────────────────────────┘
+```
+
+## Running an attestor instance
+
+When running this program you need to specify:
+- What kind of chain (`--chain-type`) will be attested to
+- How the signer key (`--signer-type`) will be provided 
+
+Each chain and signer type has its own configuration parameters which are caputured under separate sections in the configuration toml.
+
+## Technical Details
+
+### Signing specs
+
+The signing algorithm is a follows:
+1. Retrieve relevant chain/packet state via the chain adapter
+2. Encode the data using the ABI format to facilitate EVM parsing
+3. Send the encoded message to the signer which first hashes and then signs the data in ECDSA 65-byte recoverable signature (r||s||v)
+
+**Note**: Any additional KMS services that are to be integrated in the future need to conform to step three of the algorithm.
+
+### Safety Guarantees
+
+**Height Validation:**
+- Only attests to finalized blocks
+- Rejects requests for non-finalized heights
+
+**Commitment Validation:**
+- Packet: Must match computed value
+- Ack: Must exist on chain
+- Receipt: Must be absent (zero)
+
+
+## Security Model
+
+### Trust Assumptions
+- Attestor honestly reports chain state
+- RPC endpoints provide accurate data
+- Private key is kept secure
+- Only finalized blocks are attested
+
+### Protected Against
+- Block reorgs (finality requirement)
+- Invalid commitments (validation before signing)
+- Unauthorized attestations (cryptographic signatures)
+
+### Not Protected Against
+- Compromised private key
+- Malicious RPC node responses
+- Network DoS attacks
+
+## Observability
+
+### Logging
+- INFO: Normal operations
+- DEBUG: Detailed execution flow
+- ERROR: Failures with full context
+- JSON format
+
+### Tracing
+- OpenTelemetry-compatible spans
+- Minimal request time tracking
