@@ -15,14 +15,31 @@ Legend
 
 ### **On-Chain**
 
-**Modules**
-- Core IBC and GMP modules use ibc-go: [cosmos/ibc-go](https://github.com/cosmos/ibc-go/tree/main/modules) (core stack, ICS26 router, ICS27/ICA for GMP, callbacks middleware).
-- Attestor light client for Cosmos SDK chains: [cosmos/ibc-go attestor light client](https://github.com/cosmos/ibc-go/tree/main/modules/light-clients/attestations).
-- Token Factory (chain application layer) consumes IBC packets for mint/burn; it sits above the ibc-go stack on the Cosmos chain.
+**Cosmos Modules**
+- Core IBC Modules
+    - Description: Core IBC stack including the ICS 26 Router, ICS 26 Application Callbacks, and ICS 27 GMP.
+    - Specifications: see [cosmos/ibc](https://github.com/cosmos/ibc/tree/main/spec/IBC_V2)
+    - Implementations: see [cosmos/ibc-go](https://github.com/cosmos/ibc-go/tree/main/modules)
+- Attestor Light Client 
+    - Description: An attestor-based IBC light client that verifies IBC packets using quorum-signed ECDSA attestations from a fixed set of trusted signers, implemented in Go.
+    - Specification: see [cosmos/ibc ics-026-application-callbacks](https://github.com/cosmos/ibc/tree/main/spec/IBC_V2/core/ics-026-application-callbacks)
+    - Implementation: [cosmos/ibc-go attestor light client](https://github.com/cosmos/ibc-go/tree/main/modules/light-clients/attestations)
+- Token Factory:
+    - Description: Chain-dependent module that handles core asset logic and is configured with the IBC stack to initiate outgoing and/or process incoming IBC packets.
 
-**Contracts**
-- IBC stack (ICS26 router, callbacks, GMP, storage) and application contracts (e.g., IFT/token logic) are in [cosmos/solidity-ibc-eureka](https://github.com/cosmos/solidity-ibc-eureka/tree/main/contracts).
-- Attestor light client for EVM lives in [cosmos/solidity-ibc-eureka](https://github.com/cosmos/solidity-ibc-eureka/tree/main/packages/attestor/light-client) and the Solidity light-client interfaces in `contracts/light-clients/`.
+**EVM Contracts**
+- Core IBC Contracts
+    - Description: Core IBC contracts including the ICS 26 Router and ICS 27 GMP + Callbacks contracts.
+    - Specifications: see [cosmos/ibc](https://github.com/cosmos/ibc/tree/main/spec/IBC_V2)
+    - Implementations: see [cosmos/solidity-ibc-eureka](https://github.com/cosmos/solidity-ibc-eureka/tree/main/contracts).
+- Attestor Light Client
+    - Description: An attestor-based IBC light client that verifies IBC packets using quorum-signed ECDSA attestations from a fixed set of trusted signers, implemented in Solidity.
+    - Specification: see [cosmos/solidity-ibc-eureka design](https://github.com/cosmos/solidity-ibc-eureka/blob/main/contracts/light-clients/attestation/IBC_ATTESTOR_DESIGN.md)
+    - Implementation: see [cosmos/solidity-ibc-eureka attestation](https://github.com/cosmos/solidity-ibc-eureka/tree/main/contracts/light-clients/attestation)
+- Interchain Fungible Token (IFT)
+    - Description: A set of rules and interfaces for creating and managing fungible tokens that can be transferred across different blockchain networks using ICS-27 GMP.
+    - Specification: see [IFT Specs](https://github.com/cosmos/ibc-attestor/docs/ift.md)
+    - Implementation: see [cosmos/solidity-ibc-eureka IFTBase.sol](https://github.com/cosmos/solidity-ibc-eureka/blob/mariuszzak/ift/contracts/IFTBase.sol)
 
 ### **Off-Chain**
 
