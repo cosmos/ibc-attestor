@@ -5,7 +5,11 @@ This document explains how an IBC v2 deployment works end-to-end to support mint
 ## System Architecture
 ![IBC system diagram](system-diagram.png)
 
-- Blue = on-chain contracts (EVM), Purple = IBC/SDK modules, Orange = off-chain infrastructure, dashed arrows = proofs/verification.
+Legend
+- Blue = on-chain contracts (EVM)
+- Purple = IBC / SDK modules, 
+- Orange = off-chain infrastructure
+- Dashed arrows = proofs / verification.
 
 ## Components
 
