@@ -24,6 +24,10 @@ IBC v2 Relayer is a standalone, production-ready, request-driven relayer service
 
 ## Design
 ![Design](relayer-design.png)
+The relayer has three main components - the gRPC server which clients use to interact with the relayer, a postgres db, and the core relayer. The gRPC server populates the db with packets, which the core relayer monitors and updates as it progresses in relaying those packets.
+
+![Relaying Pipeline](relaying-pipeline.png)
+The relayer is designed as a pipeline which is composed of a set of asynchronously running processors. Transfers pass through the processors sequentially. Some pipeline steps process transfers individually while others process transfers in [batches](https://etherscan.io/tx/0x49c7d94cd2d28cadfdeccc546edc67548b31f2fa4d3126495453832ece919c8d).
 
 ## API Interface
 The relayer serves a gRPC server which clients use to specify what packets to relay and track packet relaying progress.
