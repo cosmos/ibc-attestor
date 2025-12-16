@@ -3,7 +3,7 @@
 This document explains how an IBC v2 deployment works end-to-end to support mint/burn transfers between Cosmos and EVM chains.
 
 ## System Architecture
-![IBC system diagram](system-diagram.png)
+![IBC system diagram](images/system-diagram.png)
 
 Legend
 - Blue = on-chain contracts (EVM)
