@@ -139,8 +139,8 @@ chains:
       recv_batch_size: 100
       timeout_batch_size: 100
 ```
-In the above snippet,`ack-batch-size: 100` indicates that the relayer should allow batching of up to 100 ack packets.
-`ack-batch-timeout: 10s` indicates that the relayer will wait 10 seconds for acknowledgements to accumulate in the current batch before it relays the batch.
+In the above snippet, `ack_batch_size: 100` indicates that the relayer should allow batching of up to 100 ack packets.
+`ack_batch-timeout: 10s` indicates that the relayer will wait 10 seconds for acknowledgements to accumulate in the current batch before it relays the batch.
 
 ### Configuring Gas Threshold Metrics
 
