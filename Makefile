@@ -1,4 +1,4 @@
-.PHONY: build-attestor-image lint lint-fix fmt fmt-check test
+.PHONY: build-attestor-image lint fmt test
 
 build-attestor-image:
 	docker build -t attestor-local -f apps/ibc-attestor/Dockerfile .
@@ -6,7 +6,7 @@ build-attestor-image:
 lint:
 	cargo clippy --all-targets --all-features -- -D warnings
 
-fmt-check:
+fmt:
 	cargo fmt --all -- --check
 
 test:
