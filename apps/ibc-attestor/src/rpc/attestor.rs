@@ -1,6 +1,6 @@
 use alloy_primitives::keccak256;
 use alloy_sol_types::SolValue;
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::{StreamExt, stream::FuturesUnordered};
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 use ibc_eureka_solidity_types::msgs::IAttestationMsgs;
 use tonic::{Request, Response, Status};
@@ -8,15 +8,15 @@ use tracing::{debug, error};
 
 use super::api::attestation_service_server::AttestationService;
 use crate::{
+    AttestorError, Packets,
     adapter::AttestationAdapter,
-    attestation::{sign_attestation, SignedAttestation},
+    attestation::{SignedAttestation, sign_attestation},
     rpc::api::{
         Attestation, CommitmentType, LatestHeightRequest, LatestHeightResponse,
         PacketAttestationRequest, PacketAttestationResponse, StateAttestationRequest,
         StateAttestationResponse,
     },
     signer::Signer,
-    AttestorError, Packets,
 };
 
 /// gRPC service implementation for attestation requests
@@ -39,7 +39,12 @@ impl<A, S> AttestorService<A, S> {
         signer: S,
         signer_name: &'static str,
     ) -> Self {
-        Self { adapter, adapter_name, signer, signer_name }
+        Self {
+            adapter,
+            adapter_name,
+            signer,
+            signer_name,
+        }
     }
 
     pub fn adapter_name(&self) -> &'static str {
@@ -61,7 +66,11 @@ where
         &self,
         _request: Request<LatestHeightRequest>,
     ) -> Result<Response<LatestHeightResponse>, Status> {
-        let height = self.adapter.get_last_finalized_height().await.map_err(AttestorError::from)?;
+        let height = self
+            .adapter
+            .get_last_height_at_configured_finality()
+            .await
+            .map_err(AttestorError::from)?;
 
         Ok(Response::new(LatestHeightResponse { height }))
     }
@@ -75,8 +84,11 @@ where
         validate_height(&self.adapter, height).await?;
 
         // Create unsigned attestation
-        let timestamp =
-            self.adapter.get_block_timestamp(height).await.map_err(AttestorError::from)?;
+        let timestamp = self
+            .adapter
+            .get_block_timestamp(height)
+            .await
+            .map_err(AttestorError::from)?;
         let unsigned_attestation = IAttestationMsgs::StateAttestation { height, timestamp };
         let attested_data = unsigned_attestation.abi_encode();
 
@@ -117,7 +129,7 @@ async fn validate_height(
     height: u64,
 ) -> Result<(), AttestorError> {
     // Check that the request is for the finalized height
-    let finalized = adapter.get_last_finalized_height().await?;
+    let finalized = adapter.get_last_height_at_configured_finality().await?;
     if height > finalized {
         error!(
             requestedHeight = height,
@@ -188,13 +200,23 @@ async fn handle_packet_commitment(
 
     // Get packet commitment from the chain
     let commitment = adapter
-        .get_commitment(client_id.clone(), height, sequence, &commitment_path, commitment_type)
+        .get_commitment(
+            client_id.clone(),
+            height,
+            sequence,
+            &commitment_path,
+            commitment_type,
+        )
         .await?;
 
     // Packet commitment is expected to exist
     let commitment = commitment.ok_or_else(|| {
         error!("packet commitment not found on chain");
-        AttestorError::CommitmentNotFound { client_id: client_id.clone(), sequence, height }
+        AttestorError::CommitmentNotFound {
+            client_id: client_id.clone(),
+            sequence,
+            height,
+        }
     })?;
 
     if expected_path == commitment {
@@ -235,13 +257,23 @@ async fn handle_ack_commitment(
 
     // Get commitment from the chain
     let commitment = adapter
-        .get_commitment(client_id.clone(), height, sequence, &commitment_path, commitment_type)
+        .get_commitment(
+            client_id.clone(),
+            height,
+            sequence,
+            &commitment_path,
+            commitment_type,
+        )
         .await?;
 
     // Ack commitment is expected to exist
     let commitment = commitment.ok_or_else(|| {
         error!(height, "ack commitment not found on chain");
-        AttestorError::CommitmentNotFound { client_id, sequence, height }
+        AttestorError::CommitmentNotFound {
+            client_id,
+            sequence,
+            height,
+        }
     })?;
 
     Ok(IAttestationMsgs::PacketCompact {
@@ -264,7 +296,13 @@ async fn handle_receipt_commitment(
 
     // Get commitment from the chain
     let commitment = adapter
-        .get_commitment(client_id.clone(), height, sequence, &commitment_path, commitment_type)
+        .get_commitment(
+            client_id.clone(),
+            height,
+            sequence,
+            &commitment_path,
+            commitment_type,
+        )
         .await?;
 
     // If commitment is `None` we set it to empty commitment
@@ -302,7 +340,9 @@ impl From<SignedAttestation> for Response<StateAttestationResponse> {
             signature: signed.signature,
         };
 
-        Response::new(StateAttestationResponse { attestation: Some(attestation) })
+        Response::new(StateAttestationResponse {
+            attestation: Some(attestation),
+        })
     }
 }
 
@@ -315,6 +355,8 @@ impl From<SignedAttestation> for Response<PacketAttestationResponse> {
             signature: signed.signature,
         };
 
-        Response::new(PacketAttestationResponse { attestation: Some(attestation) })
+        Response::new(PacketAttestationResponse {
+            attestation: Some(attestation),
+        })
     }
 }
