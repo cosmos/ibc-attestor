@@ -150,7 +150,7 @@ impl CosmosAdapter {
 
 #[async_trait::async_trait]
 impl AttestationAdapter for CosmosAdapter {
-    async fn get_last_finalized_height(&self) -> Result<u64, AttestationAdapterError> {
+    async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
         debug!("fetching last finalized height from Cosmos chain");
 
         let block = self.client.latest_commit().await.map_err(|err| {
@@ -199,13 +199,16 @@ impl AttestationAdapter for CosmosAdapter {
         // Get commitment
         let commitment = match commitment_type {
             CommitmentType::Packet => {
-                self.get_packet_commitment(client_id.clone(), height, sequence).await
+                self.get_packet_commitment(client_id.clone(), height, sequence)
+                    .await
             }
             CommitmentType::Ack => {
-                self.get_ack_commitment(client_id.clone(), height, sequence).await
+                self.get_ack_commitment(client_id.clone(), height, sequence)
+                    .await
             }
             CommitmentType::Receipt => {
-                self.get_receipt_commitment(client_id.clone(), height, sequence).await
+                self.get_receipt_commitment(client_id.clone(), height, sequence)
+                    .await
             }
         }?;
 

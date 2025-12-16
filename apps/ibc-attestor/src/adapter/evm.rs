@@ -1,5 +1,5 @@
 use alloy::{consensus::BlockHeader, eips::BlockId};
-use alloy_primitives::{keccak256, Address};
+use alloy_primitives::{Address, keccak256};
 use alloy_provider::{Provider, RootProvider};
 use tracing::{debug, error, info};
 
@@ -56,7 +56,11 @@ impl AdapterBuilder for EvmAdapterBuilder {
             "EVM adapter initialized successfully"
         );
 
-        Ok(EvmAdapter { config, client, router })
+        Ok(EvmAdapter {
+            config,
+            client,
+            router,
+        })
     }
 }
 
@@ -70,7 +74,7 @@ pub struct EvmAdapter {
 
 #[async_trait::async_trait]
 impl AttestationAdapter for EvmAdapter {
-    async fn get_last_finalized_height(&self) -> Result<u64, AttestationAdapterError> {
+    async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
         debug!("fetching last finalized height from EVM chain");
 
         let block_id = match self.config.finality_offset {
@@ -101,22 +105,32 @@ impl AttestationAdapter for EvmAdapter {
                 finalized
             }
             None => {
-                debug!(finalizedHeight = block.number(), "using finalized block tag");
+                debug!(
+                    finalizedHeight = block.number(),
+                    "using finalized block tag"
+                );
                 block.number()
             }
         };
 
-        debug!(finalizedHeight = finalized_height, "retrieved last finalized height");
+        debug!(
+            finalizedHeight = finalized_height,
+            "retrieved last finalized height"
+        );
         Ok(finalized_height)
     }
 
     async fn get_block_timestamp(&self, height: u64) -> Result<u64, AttestationAdapterError> {
         debug!("fetching block timestamp from EVM chain");
 
-        let block = self.client.get_block(BlockId::number(height)).await.map_err(|err| {
-            error!(error = %err, "failed to fetch block from EVM chain");
-            AttestationAdapterError::RetrievalError(err.to_string())
-        })?;
+        let block = self
+            .client
+            .get_block(BlockId::number(height))
+            .await
+            .map_err(|err| {
+                error!(error = %err, "failed to fetch block from EVM chain");
+                AttestationAdapterError::RetrievalError(err.to_string())
+            })?;
 
         let block = block.ok_or_else(|| {
             error!("block not found at specified height");

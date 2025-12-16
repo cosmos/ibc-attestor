@@ -41,8 +41,7 @@ Attestor instances can make the following security guarantees:
     - Ack: Must exist on chain
     - Receipt: Must be absent (zero)
 - Signatures are cryptographically sound and recoverable
-
-TODO: Add something about height assumptions
+- Any heights in gRPC queries cannot be greater than the configured finalization height
 
 ## Architecture
 

@@ -48,7 +48,7 @@ pub trait AdapterBuilder {
 pub trait AttestationAdapter: Sync + Send + 'static {
     /// Fetch the height of the last finalized block. If there's no finalized
     /// block yet, it should return an error.
-    async fn get_last_finalized_height(&self) -> Result<u64, AttestationAdapterError>;
+    async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError>;
 
     /// Returns a UNIX timestamp in seconds for the provided block height.
     async fn get_block_timestamp(&self, height: u64) -> Result<u64, AttestationAdapterError>;

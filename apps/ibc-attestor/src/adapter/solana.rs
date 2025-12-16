@@ -68,13 +68,16 @@ impl AdapterBuilder for SolanaAdapterBuilder {
             "Solana adapter initialized successfully"
         );
 
-        Ok(SolanaAdapter { client, router_program_id })
+        Ok(SolanaAdapter {
+            client,
+            router_program_id,
+        })
     }
 }
 
 #[async_trait::async_trait]
 impl AttestationAdapter for SolanaAdapter {
-    async fn get_last_finalized_height(&self) -> Result<u64, AttestationAdapterError> {
+    async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
         debug!("fetching last finalized slot from Solana chain");
 
         let current_finalized_slot = self
@@ -86,7 +89,10 @@ impl AttestationAdapter for SolanaAdapter {
                 AttestationAdapterError::RetrievalError(err.to_string())
             })?;
 
-        debug!(slot = current_finalized_slot, "retrieved last finalized slot");
+        debug!(
+            slot = current_finalized_slot,
+            "retrieved last finalized slot"
+        );
         Ok(current_finalized_slot)
     }
 
@@ -156,7 +162,10 @@ impl AttestationAdapter for SolanaAdapter {
         // The account data should be a 32-byte commitment value
         // Skip the 8-byte anchor discriminator
         if account_data_len < ANCHOR_DISCRIMINATOR_LEN + COMMITMENT_LEN {
-            error!(dataLength = account_data_len, "invalid commitment account data length");
+            error!(
+                dataLength = account_data_len,
+                "invalid commitment account data length"
+            );
             return Err(AttestationAdapterError::RetrievalError(format!(
                 "Invalid commitment account data length: got {account_data_len} bytes, expected at least 40",
             )));
