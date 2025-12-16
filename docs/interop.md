@@ -1,13 +1,13 @@
-# ibc-attestor interop overview
+# IBC v2 Deployment Overview
 
-For attestor service architecture, see the root `README.md`. High-level interoperability is captured in the system diagram below.
+This document explains how an IBC v2 deployment works end-to-end to support mint/burn transfers between Cosmos and EVM chains.
 
-## System diagram
+## System Architecture
 ![IBC system diagram](system-diagram.png)
 
 - Blue = on-chain contracts (EVM), Purple = IBC/SDK modules, Orange = off-chain infrastructure, dashed arrows = proofs/verification.
 
-## Components and code links
+## Components
 
 ### **On-Chain**
 
