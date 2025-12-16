@@ -39,6 +39,10 @@ where
 pub struct ServerConfig {
     /// The address that the server should listen on.
     pub listen_addr: SocketAddr,
+    /// The address that the health check server should listen on.
+    /// Defaults to port 8081 on the same host as listen_addr if not specified.
+    #[serde(default)]
+    pub health_addr: Option<SocketAddr>,
 }
 
 /// Errors that can occur loading the attestor config.

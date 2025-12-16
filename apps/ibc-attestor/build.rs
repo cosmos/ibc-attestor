@@ -19,5 +19,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_server(false)
         .compile_protos(&["../../proto/signer/signerservice.proto"], &["../../proto"])?;
 
+    let health_descriptor_path = out_dir.join("health_descriptor.bin");
+    tonic_build::configure()
+        .file_descriptor_set_path(&health_descriptor_path)
+        .build_server(true)
+        .build_client(false)
+        .compile_protos(&["../../proto/health/health.proto"], &["../../proto"])?;
+
     Ok(())
 }
