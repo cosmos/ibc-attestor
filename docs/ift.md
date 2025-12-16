@@ -434,7 +434,7 @@ contract EVMIFTSendCallConstructor is IIFTSendCallConstructor {
 /// @dev This implementation is an example, and may need to be adapted based on the actual message structure of the TokenFactory module
 contract CosmosSDKIFTSendCallConstructor is IIFTSendCallConstructor {
     /// @notice BRIDGE_RECEIVE_TYPE_URL is the type URL for the MsgIFTMint message in the TokenFactory module.
-    string private constant BRIDGE_RECEIVE_TYPE_URL = "/wfchain.tokenfactory.MsgIFTMint";
+    string private constant BRIDGE_RECEIVE_TYPE_URL = "/examplechain.tokenfactory.MsgIFTMint";
 
     /// @notice DENOM is the denomination of the counterparty token on the Cosmos SDK chain.
     string public immutable DENOM;
@@ -493,6 +493,7 @@ type TokenFactoryKeeper interface {
     // BurnFrom burns tokens of `denom` from `address`.
     // MUST fail if `address` does not have enough balance or burn is not permitted.
     BurnFrom(ctx sdk.Context, denom string, amount sdk.Int, addr sdk.AccAddress) error
+}
 
 ```
 
