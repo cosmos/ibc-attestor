@@ -20,8 +20,6 @@ RUN cargo build --bin ibc_attestor --release --locked
 
 FROM debian:bullseye-slim
 
-ARG PORT
-
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
