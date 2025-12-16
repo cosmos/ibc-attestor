@@ -46,13 +46,14 @@ impl SignerBuilder for LocalSigner {
             config.keystore_path
         };
 
-        let home = std::env::home_dir().ok_or(SignerError::ConfigError(
-            "unable to read home directory".to_string(),
-        ))?;
         let with_expanded_home = if keystore_path_with_file.starts_with("~/") {
-            keystore_path_with_file
-                .to_string_lossy()
-                .replace("~", &*home.to_string_lossy())
+            let home =
+                std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).map_err(|_| {
+                    SignerError::ConfigError(
+                        "unable to determine home directory from environment".to_string(),
+                    )
+                })?;
+            keystore_path_with_file.to_string_lossy().replace("~", &home)
         } else {
             keystore_path_with_file.to_string_lossy().to_string()
         };

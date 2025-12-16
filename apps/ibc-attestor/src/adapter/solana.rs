@@ -15,18 +15,23 @@ const ANCHOR_DISCRIMINATOR_LEN: usize = 8;
 /// Commitment length
 const COMMITMENT_LEN: usize = 32;
 
+/// Configuration for the Solana blockchain client adapter
 #[derive(Clone, Debug, Deserialize)]
 pub struct SolanaAdapterConfig {
+    /// RPC endpoint URL for the Solana chain
     pub url: String,
+    /// The router program ID (Solana program address)
     #[serde(alias = "router_address")]
     pub router_program_id: String,
 }
 
+/// Solana adapter for interacting with the Solana blockchain
 pub struct SolanaAdapter {
     client: RpcClient,
     router_program_id: Pubkey,
 }
 
+/// Builder for creating Solana adapter instances
 pub struct SolanaAdapterBuilder;
 
 impl AdapterBuilder for SolanaAdapterBuilder {
@@ -63,10 +68,7 @@ impl AdapterBuilder for SolanaAdapterBuilder {
             "Solana adapter initialized successfully"
         );
 
-        Ok(SolanaAdapter {
-            client,
-            router_program_id,
-        })
+        Ok(SolanaAdapter { client, router_program_id })
     }
 }
 
@@ -84,10 +86,7 @@ impl AttestationAdapter for SolanaAdapter {
                 AttestationAdapterError::RetrievalError(err.to_string())
             })?;
 
-        debug!(
-            slot = current_finalized_slot,
-            "retrieved last finalized slot"
-        );
+        debug!(slot = current_finalized_slot, "retrieved last finalized slot");
         Ok(current_finalized_slot)
     }
 
@@ -157,10 +156,7 @@ impl AttestationAdapter for SolanaAdapter {
         // The account data should be a 32-byte commitment value
         // Skip the 8-byte anchor discriminator
         if account_data_len < ANCHOR_DISCRIMINATOR_LEN + COMMITMENT_LEN {
-            error!(
-                dataLength = account_data_len,
-                "invalid commitment account data length"
-            );
+            error!(dataLength = account_data_len, "invalid commitment account data length");
             return Err(AttestationAdapterError::RetrievalError(format!(
                 "Invalid commitment account data length: got {account_data_len} bytes, expected at least 40",
             )));

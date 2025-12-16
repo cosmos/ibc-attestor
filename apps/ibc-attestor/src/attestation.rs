@@ -13,12 +13,7 @@ pub async fn sign_attestation(
     attested_data: Vec<u8>,
     signer: &impl Signer,
 ) -> Result<SignedAttestation, AttestorError> {
-    debug!(
-        height,
-        timestamp,
-        data_len = attested_data.len(),
-        "signing attestation"
-    );
+    debug!(height, timestamp, data_len = attested_data.len(), "signing attestation");
 
     let signature = signer.sign(&attested_data).await.map_err(|e| {
         error!(
@@ -37,18 +32,17 @@ pub async fn sign_attestation(
         "attestation signed successfully"
     );
 
-    Ok(SignedAttestation {
-        height,
-        timestamp,
-        attested_data,
-        signature: signature_bytes,
-    })
+    Ok(SignedAttestation { height, timestamp, attested_data, signature: signature_bytes })
 }
 
-/// Signed attestation
+/// Signed attestation containing blockchain state data and cryptographic signature
 pub struct SignedAttestation {
+    /// Block height being attested
     pub height: u64,
+    /// Optional block timestamp (for state attestations)
     pub timestamp: Option<u64>,
+    /// ABI-encoded attestation data
     pub attested_data: Vec<u8>,
+    /// 65-byte ECDSA signature (r: 32, s: 32, v: 1)
     pub signature: Vec<u8>,
 }

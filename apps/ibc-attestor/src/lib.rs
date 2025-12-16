@@ -1,8 +1,19 @@
+//! IBC Attestor Library
+//!
+//! This library provides the core functionality for the IBC attestor service,
+//! which generates cryptographic attestations of blockchain state for IBC operations.
+
+/// Blockchain adapter implementations for different chain types
 pub mod adapter;
+/// Attestation signing and data structures
 pub mod attestation;
+/// Configuration structures and loading
 pub mod config;
+/// Logging and observability setup
 pub mod logging;
+/// gRPC server and service implementations
 pub mod rpc;
+/// Signer implementations for local and remote signing
 pub mod signer;
 
 mod error;
@@ -22,6 +33,7 @@ use alloy_sol_types::SolType;
 pub use error::AttestorError;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 
+/// A collection of IBC packets for batch attestation
 pub struct Packets(Vec<Packet>);
 
 impl Packets {

@@ -16,6 +16,7 @@ pub struct CosmosAdapterConfig {
     pub url: Url,
 }
 
+/// Builder for creating Cosmos adapter instances
 pub struct CosmosAdapterBuilder;
 
 impl AdapterBuilder for CosmosAdapterBuilder {
@@ -49,6 +50,7 @@ impl AdapterBuilder for CosmosAdapterBuilder {
     }
 }
 
+/// Cosmos adapter for interacting with Cosmos SDK based chains via Tendermint RPC
 #[derive(Debug)]
 pub struct CosmosAdapter {
     client: HttpClient,
@@ -197,16 +199,13 @@ impl AttestationAdapter for CosmosAdapter {
         // Get commitment
         let commitment = match commitment_type {
             CommitmentType::Packet => {
-                self.get_packet_commitment(client_id.clone(), height, sequence)
-                    .await
+                self.get_packet_commitment(client_id.clone(), height, sequence).await
             }
             CommitmentType::Ack => {
-                self.get_ack_commitment(client_id.clone(), height, sequence)
-                    .await
+                self.get_ack_commitment(client_id.clone(), height, sequence).await
             }
             CommitmentType::Receipt => {
-                self.get_receipt_commitment(client_id.clone(), height, sequence)
-                    .await
+                self.get_receipt_commitment(client_id.clone(), height, sequence).await
             }
         }?;
 

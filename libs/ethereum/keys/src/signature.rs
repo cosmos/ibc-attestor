@@ -11,9 +11,7 @@ pub fn sign<T: SignerSync>(signer: &T, message: &[u8]) -> Result<Signature, anyh
     let digest = Sha256::digest(message);
     let hash = B256::from_slice(&digest);
 
-    signer
-        .sign_hash_sync(&hash)
-        .map_err(|e| anyhow::anyhow!("{e}"))
+    signer.sign_hash_sync(&hash).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 #[cfg(test)]
