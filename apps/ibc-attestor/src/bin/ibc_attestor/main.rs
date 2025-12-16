@@ -1,4 +1,4 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, net::SocketAddr, path::PathBuf};
 
 use alloy_signer_local::PrivateKeySigner;
 use clap::Parser;
@@ -10,9 +10,9 @@ use ibc_attestor::{
         solana::{SolanaAdapterBuilder, SolanaAdapterConfig},
         AdapterBuilder,
     },
-    config::AttestorConfig,
+    config::{AttestorConfig, ServerConfig},
     logging::init_logging,
-    rpc::{server, RpcError},
+    rpc::{health_server, server, RpcError},
     signer::{
         local::{LocalSigner, LocalSignerConfig, DEFAULT_KEYSTORE_NAME},
         remote::{RemoteSigner, RemoteSignerConfig},
@@ -41,6 +41,16 @@ fn default_attestor_dir() -> Result<PathBuf, anyhow::Error> {
         .or_else(|_| env::var("USERPROFILE"))
         .map_err(|_| anyhow::anyhow!("unable to determine home directory from environment"))?;
     Ok(PathBuf::from(home).join(".ibc-attestor"))
+}
+
+/// Get the health check address from the server config.
+/// If not specified, defaults to port 8081 on the same host as the main server.
+fn get_health_addr(server_config: &ServerConfig) -> SocketAddr {
+    server_config.health_addr.unwrap_or_else(|| {
+        let mut addr = server_config.listen_addr;
+        addr.set_port(8081);
+        addr
+    })
 }
 
 fn run_server_with_adapter_and_signer<B: AdapterBuilder, S: SignerBuilder>(
@@ -76,71 +86,94 @@ async fn main() -> Result<(), anyhow::Error> {
             // Create shutdown broadcast channel
             let (shutdown_tx, shutdown_rx) = broadcast::channel(1);
 
-            let rpc_handle = match (args.chain_type, args.signer_type) {
+            let (health_addr, rpc_handle) = match (args.chain_type, args.signer_type) {
                 (ChainType::Evm, SignerType::Local) => {
                     let config = AttestorConfig::<EvmAdapterConfig, LocalSignerConfig>::from_file(
                         args.config,
                     )?;
-                    run_server_with_adapter_and_signer::<EvmAdapterBuilder, LocalSigner>(
+                    let health_addr = get_health_addr(&config.server);
+                    let handle = run_server_with_adapter_and_signer::<EvmAdapterBuilder, LocalSigner>(
                         config,
                         shutdown_rx,
-                    )?
+                    )?;
+                    (health_addr, handle)
                 }
                 (ChainType::Evm, SignerType::Remote) => {
                     let config = AttestorConfig::<EvmAdapterConfig, RemoteSignerConfig>::from_file(
                         args.config,
                     )?;
-                    run_server_with_adapter_and_signer::<EvmAdapterBuilder, RemoteSigner>(
+                    let health_addr = get_health_addr(&config.server);
+                    let handle = run_server_with_adapter_and_signer::<EvmAdapterBuilder, RemoteSigner>(
                         config,
                         shutdown_rx,
-                    )?
+                    )?;
+                    (health_addr, handle)
                 }
                 (ChainType::Solana, SignerType::Local) => {
                     let config =
                         AttestorConfig::<SolanaAdapterConfig, LocalSignerConfig>::from_file(
                             args.config,
                         )?;
-                    run_server_with_adapter_and_signer::<SolanaAdapterBuilder, LocalSigner>(
+                    let health_addr = get_health_addr(&config.server);
+                    let handle = run_server_with_adapter_and_signer::<SolanaAdapterBuilder, LocalSigner>(
                         config,
                         shutdown_rx,
-                    )?
+                    )?;
+                    (health_addr, handle)
                 }
                 (ChainType::Solana, SignerType::Remote) => {
                     let config =
                         AttestorConfig::<SolanaAdapterConfig, RemoteSignerConfig>::from_file(
                             args.config,
                         )?;
-                    run_server_with_adapter_and_signer::<SolanaAdapterBuilder, RemoteSigner>(
+                    let health_addr = get_health_addr(&config.server);
+                    let handle = run_server_with_adapter_and_signer::<SolanaAdapterBuilder, RemoteSigner>(
                         config,
                         shutdown_rx,
-                    )?
+                    )?;
+                    (health_addr, handle)
                 }
                 (ChainType::Cosmos, SignerType::Local) => {
                     let config =
                         AttestorConfig::<CosmosAdapterConfig, LocalSignerConfig>::from_file(
                             args.config,
                         )?;
-                    run_server_with_adapter_and_signer::<CosmosAdapterBuilder, LocalSigner>(
+                    let health_addr = get_health_addr(&config.server);
+                    let handle = run_server_with_adapter_and_signer::<CosmosAdapterBuilder, LocalSigner>(
                         config,
                         shutdown_rx,
-                    )?
+                    )?;
+                    (health_addr, handle)
                 }
                 (ChainType::Cosmos, SignerType::Remote) => {
                     let config =
                         AttestorConfig::<CosmosAdapterConfig, RemoteSignerConfig>::from_file(
                             args.config,
                         )?;
-                    run_server_with_adapter_and_signer::<CosmosAdapterBuilder, RemoteSigner>(
+                    let health_addr = get_health_addr(&config.server);
+                    let handle = run_server_with_adapter_and_signer::<CosmosAdapterBuilder, RemoteSigner>(
                         config,
                         shutdown_rx,
-                    )?
+                    )?;
+                    (health_addr, handle)
                 }
             };
+
+            // Start health server after main server is initialized
+            // Use a separate shutdown receiver for the health server
+            let health_shutdown_rx = shutdown_tx.subscribe();
+            let health_handle = tokio::spawn(async move {
+                health_server::start(health_addr, health_shutdown_rx).await
+            });
 
             _ = wait_for_shutdown_signal().await;
             info!("shutdown signal received, starting graceful shutdown");
             let _ = shutdown_tx.send(());
-            rpc_handle.await??;
+            
+            // Wait for both servers to shut down
+            let (rpc_result, health_result) = tokio::join!(rpc_handle, health_handle);
+            rpc_result??;
+            health_result??;
         }
         Commands::Key(cmd) => {
             match cmd {
