@@ -1,7 +1,9 @@
 use alloy_primitives::Signature;
 use async_trait::async_trait;
 
+/// Local signer implementation
 pub mod local;
+/// Cosmos remote signer implementation
 pub mod remote;
 
 /// Trait for signing attestation data
@@ -26,7 +28,9 @@ pub trait Signer: Send + Sync + 'static {
 /// This trait provides a generic interface for constructing signers,
 /// similar to the AdapterBuilder pattern used for attestation adapters.
 pub trait SignerBuilder {
+    /// Configuration needed for signer
     type Config: Clone + Send + 'static;
+    /// Implementation of [`Signer`] trait
     type Signer: Signer;
 
     /// Returns the name of the signer for logging and observability purposes.
@@ -39,18 +43,23 @@ pub trait SignerBuilder {
 /// Errors that can occur during signing operations
 #[derive(Debug, thiserror::Error)]
 pub enum SignerError {
+    /// Error with local signer
     #[error("Local signing error: {0}")]
     LocalError(String),
 
+    /// Error with remote signer
     #[error("Remote signing error: {0}")]
     RemoteError(String),
 
+    /// Unable to connect to remote signer
     #[error("Connection failed: {0}")]
     ConnectionError(String),
 
+    /// Bad signature
     #[error("Invalid signature format: {0}")]
     InvalidSignature(String),
 
+    /// Bad or missing config
     #[error("Failed to build signer due to: {0}")]
     ConfigError(String),
 }

@@ -1,18 +1,35 @@
+#![deny(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
+
+//! IBC Attestor Library
+//!
+//! This library provides the core functionality for the IBC attestor service,
+//! which generates cryptographic attestations of blockchain state for IBC operations.
+
+/// Blockchain adapter implementations for different chain types
 pub mod adapter;
+/// Attestation signing and data structures
 pub mod attestation;
+/// Configuration structures and loading
 pub mod config;
+/// Logging and observability setup
 pub mod logging;
+/// gRPC server and service implementations
 pub mod rpc;
+/// Signer implementations for local and remote signing
 pub mod signer;
 
 mod error;
 
-// Proto definitions
+/// Attestor and IBC proto definitions
 pub mod proto {
+    /// Attestor protos
+    #[allow(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
     pub mod attestor {
         tonic::include_proto!("ibc_attestor");
     }
 
+    /// Remote signer protos
+    #[allow(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
     pub mod signer {
         tonic::include_proto!("signerservice");
     }
@@ -22,6 +39,7 @@ use alloy_sol_types::SolType;
 pub use error::AttestorError;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 
+/// A collection of IBC packets for batch attestation
 pub struct Packets(Vec<Packet>);
 
 impl Packets {

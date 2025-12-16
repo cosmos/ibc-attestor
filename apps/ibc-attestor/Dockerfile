@@ -20,13 +20,18 @@ RUN cargo build --bin ibc_attestor --release --locked
 
 FROM debian:bullseye-slim
 
-ARG PORT
-
 RUN apt-get update && apt-get install -y \
-    ca-certificates
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user to run the application
+RUN useradd -m -u 1000 -s /bin/bash attestor
 
 WORKDIR /usr/local/bin
-COPY --from=build /app/target/release/ibc_attestor /usr/local/bin/ibc_attestor
+COPY --from=build --chown=attestor:attestor /app/target/release/ibc_attestor /usr/local/bin/ibc_attestor
+
+# Run as non-root user
+USER attestor
 
 # The chain type must be specified when running the container
 # Mounts should be used to provide the configuration file

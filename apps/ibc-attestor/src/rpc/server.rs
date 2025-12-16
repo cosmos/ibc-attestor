@@ -31,10 +31,13 @@ where
     );
 
     // Configure reflection service for service discovery
+    //
+    // Note: This expect is safe because the file descriptor set is embedded at compile time
+    // and the build should only succeed if it's valid. This operation is infallible at runtime.
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
         .build_v1()
-        .expect("infallible");
+        .expect("building reflection service should never fail with valid embedded descriptor set");
 
     let attestation_service = AttestorService::new(adapter, adapter_name, signer, signer_name);
     let logging_service = LoggingMiddleware::new(attestation_service);

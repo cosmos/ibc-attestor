@@ -21,6 +21,10 @@ pub struct RemoteSignerConfig {
 }
 
 /// Remote signer implementation using gRPC client
+///
+/// This signer connects to a remote signing service via gRPC to perform
+/// cryptographic signing operations. The connection is created on-demand
+/// for each signing request.
 pub struct RemoteSigner {
     endpoint: String,
     wallet_id: String,
@@ -35,10 +39,7 @@ impl RemoteSigner {
             "remote signer configured (connection deferred until first use)"
         );
 
-        Self {
-            endpoint,
-            wallet_id,
-        }
+        Self { endpoint, wallet_id }
     }
 
     /// Create a new gRPC client connection
@@ -101,11 +102,9 @@ impl Signer for RemoteSigner {
 
         let request = tonic::Request::new(SignRequest {
             wallet_id: self.wallet_id.clone(),
-            payload: Some(crate::proto::signer::sign_request::Payload::RawMessage(
-                RawMessage {
-                    message: message.to_vec(),
-                },
-            )),
+            payload: Some(crate::proto::signer::sign_request::Payload::RawMessage(RawMessage {
+                message: message.to_vec(),
+            })),
         });
 
         let response = client
@@ -121,11 +120,7 @@ impl Signer for RemoteSigner {
         // Extract raw signature bytes
         let signature_bytes = match signature {
             crate::proto::signer::sign_response::Signature::RawSignature(raw) => raw.signature,
-            _ => {
-                return Err(SignerError::InvalidSignature(
-                    "expected raw signature".to_string(),
-                ))
-            }
+            _ => return Err(SignerError::InvalidSignature("expected raw signature".to_string())),
         };
 
         // Convert to 65-byte Signature

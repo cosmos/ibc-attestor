@@ -32,10 +32,15 @@ use crate::cli::{key::KeyCommands, AttestorCli, ChainType, Commands, SignerType}
 mod cli;
 
 /// Default attestor dir
-fn default_attestor_dir() -> PathBuf {
-    env::home_dir()
-        .map(|home| home.join(".ibc-attestor"))
-        .expect("home dir can be resolved")
+///
+/// # Errors
+///
+/// Returns an error if the home directory cannot be determined
+fn default_attestor_dir() -> Result<PathBuf, anyhow::Error> {
+    let home = env::var("HOME")
+        .or_else(|_| env::var("USERPROFILE"))
+        .map_err(|_| anyhow::anyhow!("unable to determine home directory from environment"))?;
+    Ok(PathBuf::from(home).join(".ibc-attestor"))
 }
 
 fn run_server_with_adapter_and_signer<B: AdapterBuilder, S: SignerBuilder>(
@@ -140,7 +145,10 @@ async fn main() -> Result<(), anyhow::Error> {
         Commands::Key(cmd) => {
             match cmd {
                 KeyCommands::Generate(args) => {
-                    let attestor_dir = args.keystore.clone().unwrap_or_else(default_attestor_dir);
+                    let attestor_dir = match args.keystore {
+                        Some(path) => path,
+                        None => default_attestor_dir()?,
+                    };
                     let keystore_path = attestor_dir.join(DEFAULT_KEYSTORE_NAME);
 
                     if !attestor_dir.exists() {
@@ -160,7 +168,10 @@ async fn main() -> Result<(), anyhow::Error> {
                     Ok::<(), anyhow::Error>(())
                 }
                 KeyCommands::Show(args) => {
-                    let attestor_dir = args.keystore.clone().unwrap_or_else(default_attestor_dir);
+                    let attestor_dir = match args.keystore {
+                        Some(path) => path,
+                        None => default_attestor_dir()?,
+                    };
                     let keystore_path = attestor_dir.join(DEFAULT_KEYSTORE_NAME);
 
                     let mut printed_any = false;
@@ -191,9 +202,15 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 /// Wait for a shutdown signal (SIGTERM or SIGINT).
+///
+/// # Panics
+///
+/// Panics if unable to register signal handlers, which indicates a critical system error.
 async fn wait_for_shutdown_signal() {
-    let mut signal_terminate = signal(SignalKind::terminate()).expect("able to listen for SIGTERM");
-    let mut signal_interrupt = signal(SignalKind::interrupt()).expect("able to listen for SIGINT");
+    let mut signal_terminate = signal(SignalKind::terminate())
+        .expect("failed to register SIGTERM handler - this is a critical system error");
+    let mut signal_interrupt = signal(SignalKind::interrupt())
+        .expect("failed to register SIGINT handler - this is a critical system error");
 
     tokio::select! {
         _ = signal_terminate.recv() => info!("received SIGTERM signal"),

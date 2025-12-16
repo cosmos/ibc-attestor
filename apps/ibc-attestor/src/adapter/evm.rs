@@ -29,6 +29,7 @@ pub struct EvmAdapterConfig {
     pub finality_offset: Option<u64>,
 }
 
+/// Builder for creating EVM adapter instances
 pub struct EvmAdapterBuilder;
 
 impl AdapterBuilder for EvmAdapterBuilder {
@@ -55,14 +56,11 @@ impl AdapterBuilder for EvmAdapterBuilder {
             "EVM adapter initialized successfully"
         );
 
-        Ok(EvmAdapter {
-            config,
-            client,
-            router,
-        })
+        Ok(EvmAdapter { config, client, router })
     }
 }
 
+/// EVM adapter for interacting with Ethereum Virtual Machine compatible chains
 #[derive(Debug)]
 pub struct EvmAdapter {
     config: EvmAdapterConfig,
@@ -103,32 +101,22 @@ impl AttestationAdapter for EvmAdapter {
                 finalized
             }
             None => {
-                debug!(
-                    finalizedHeight = block.number(),
-                    "using finalized block tag"
-                );
+                debug!(finalizedHeight = block.number(), "using finalized block tag");
                 block.number()
             }
         };
 
-        debug!(
-            finalizedHeight = finalized_height,
-            "retrieved last finalized height"
-        );
+        debug!(finalizedHeight = finalized_height, "retrieved last finalized height");
         Ok(finalized_height)
     }
 
     async fn get_block_timestamp(&self, height: u64) -> Result<u64, AttestationAdapterError> {
         debug!("fetching block timestamp from EVM chain");
 
-        let block = self
-            .client
-            .get_block(BlockId::number(height))
-            .await
-            .map_err(|err| {
-                error!(error = %err, "failed to fetch block from EVM chain");
-                AttestationAdapterError::RetrievalError(err.to_string())
-            })?;
+        let block = self.client.get_block(BlockId::number(height)).await.map_err(|err| {
+            error!(error = %err, "failed to fetch block from EVM chain");
+            AttestationAdapterError::RetrievalError(err.to_string())
+        })?;
 
         let block = block.ok_or_else(|| {
             error!("block not found at specified height");

@@ -44,9 +44,11 @@ pub struct ServerConfig {
 /// Errors that can occur loading the attestor config.
 #[derive(Debug, Error)]
 pub enum ConfigError {
+    /// Missing or invalid file paths
     #[error("I/O error reading `{0}`: {1}")]
     Io(String, #[source] std::io::Error),
 
+    /// Malformed toml
     #[error("invalid TOML in config: {0}")]
     Toml(#[from] toml::de::Error),
 }
