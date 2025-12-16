@@ -40,7 +40,7 @@ Legend
 
 ### Cosmos to EVM
 1. The user or client submits a transaction on the Cosmos source chain which contains a burn/transfer message to the chain-dependent Token Factory module (interchangeable module that interfaces with IBC and handles core asset logic).
-    a. The Token Factory module calls the IBC GMP module to make a GMP call to the mint function on the EVM destination chain’sIFT contract.
+    a. The Token Factory module calls the IBC GMP module to make a GMP call to the mint function on the EVM destination chain’s IFT contract.
     - The GMP module calls the core ibc module to send a packet with the GMP payload to the core IBC contract (ICS 26 Router) on the EVM destination chain.
     - The IBC modules emit the relevant packet information as an event.
     - The Attestor, which continuously monitors blocks for relevant IBC events parses a valid IBC transfer packet based on its configuration, and generates a signed attestation of the packet and associated blockchain state.
