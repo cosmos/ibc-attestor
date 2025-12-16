@@ -18,11 +18,11 @@ Legend
 **Cosmos Modules**
 - Core IBC Modules
     - Description: Core IBC stack including the ICS 26 Router, ICS 26 Application Callbacks, and ICS 27 GMP.
-    - Specifications: see [cosmos/ibc](https://github.com/cosmos/ibc/tree/main/spec/IBC_V2)
-    - Implementations: see [cosmos/ibc-go](https://github.com/cosmos/ibc-go/tree/main/modules)
+    - Specifications: [cosmos/ibc](https://github.com/cosmos/ibc/tree/main/spec/IBC_V2)
+    - Implementations: [cosmos/ibc-go](https://github.com/cosmos/ibc-go/tree/main/modules)
 - Attestor Light Client 
     - Description: An attestor-based IBC light client that verifies IBC packets using quorum-signed ECDSA attestations from a fixed set of trusted signers, implemented in Go.
-    - Specification: see [cosmos/ibc ics-026-application-callbacks](https://github.com/cosmos/ibc/tree/main/spec/IBC_V2/core/ics-026-application-callbacks)
+    - Specification: [cosmos/ibc ics-026-application-callbacks](https://github.com/cosmos/ibc/tree/main/spec/IBC_V2/core/ics-026-application-callbacks)
     - Implementation: [cosmos/ibc-go attestor light client](https://github.com/cosmos/ibc-go/tree/main/modules/light-clients/attestations)
 - Token Factory:
     - Description: Chain-dependent module that handles core asset logic and is configured with the IBC stack to initiate outgoing and/or process incoming IBC packets.
@@ -30,28 +30,32 @@ Legend
 **EVM Contracts**
 - Core IBC Contracts
     - Description: Core IBC contracts including the ICS 26 Router and ICS 27 GMP + Callbacks contracts.
-    - Specifications: see [cosmos/ibc](https://github.com/cosmos/ibc/tree/main/spec/IBC_V2)
-    - Implementations: see [cosmos/solidity-ibc-eureka](https://github.com/cosmos/solidity-ibc-eureka/tree/main/contracts).
+    - Specifications: [cosmos/ibc](https://github.com/cosmos/ibc/tree/main/spec/IBC_V2)
+    - Implementations: [cosmos/solidity-ibc-eureka](https://github.com/cosmos/solidity-ibc-eureka/tree/main/contracts).
 - Attestor Light Client
     - Description: An attestor-based IBC light client that verifies IBC packets using quorum-signed ECDSA attestations from a fixed set of trusted signers, implemented in Solidity.
-    - Specification: see [cosmos/solidity-ibc-eureka design](https://github.com/cosmos/solidity-ibc-eureka/blob/main/contracts/light-clients/attestation/IBC_ATTESTOR_DESIGN.md)
-    - Implementation: see [cosmos/solidity-ibc-eureka attestation](https://github.com/cosmos/solidity-ibc-eureka/tree/main/contracts/light-clients/attestation)
+    - Specification: [cosmos/solidity-ibc-eureka design](https://github.com/cosmos/solidity-ibc-eureka/blob/main/contracts/light-clients/attestation/IBC_ATTESTOR_DESIGN.md)
+    - Implementation: [cosmos/solidity-ibc-eureka attestation](https://github.com/cosmos/solidity-ibc-eureka/tree/main/contracts/light-clients/attestation)
 - Interchain Fungible Token (IFT)
     - Description: A set of rules and interfaces for creating and managing fungible tokens that can be transferred across different blockchain networks using ICS-27 GMP.
-    - Specification: see [IFT Specs](https://github.com/cosmos/ibc-attestor/docs/ift.md)
-    - Implementation: see [cosmos/solidity-ibc-eureka IFTBase.sol](https://github.com/cosmos/solidity-ibc-eureka/blob/mariuszzak/ift/contracts/IFTBase.sol)
+    - Specification: [IFT Specs](https://github.com/cosmos/ibc-attestor/docs/ift.md)
+    - Implementation: [cosmos/solidity-ibc-eureka IFTBase.sol](https://github.com/cosmos/solidity-ibc-eureka/blob/mariuszzak/ift/contracts/IFTBase.sol)
 
 ### **Off-Chain**
 
 **Attestation Service**
-- This repo: [cosmos/ibc-attestor](https://github.com/cosmos/ibc-attestor) (Rust service in `apps/ibc-attestor/`).
+- Description: A lightweight, blockchain-agnostic attestation service that provides cryptographically signed attestations of blockchain state for IBC cross-chain communication.
+- Specification: [cosmos/ibc-attestor architecture](https://github.com/cosmos/ibc-attestor/blob/main/README.md)
+- Implementation: [cosmos/ibc-attestor](https://github.com/cosmos/ibc-attestor) (Rust service in `apps/ibc-attestor/`).
 
 **Proof API**
-- gRPC/Proof API: `proto/ibc_attestor/ibc_attestor.proto` defines `StateAttestation`, `PacketAttestation`, and `LatestHeight`.
+- Description: A gRPC server that can be queried by a client to get the data needed to generate transaction(s) for relaying IBC packets.
+- Implementation: [cosmos/solidity-ibc-eureka proof-api](https://github.com/cosmos/solidity-ibc-eureka/tree/main/programs/relayer) with shared proof builders in `packages/relayer/`.
 
 **Relayer**
-- Signature aggregation plus relaying lives in [cosmos/solidity-ibc-eureka](https://github.com/cosmos/solidity-ibc-eureka/tree/main/programs/relayer) with shared proof builders in `packages/relayer/`.
-- The relayer queries the AttestationService, enforces quorum, assembles proofs, and submits them to both chains.
+- Description: A standalone, production-ready, request-driven relayer service for the IBC v2 Protocol. 
+- Specification: [relayer](https://github.com/cosmos/ibc-attestor/blob/main/docs/relayer.md)
+- Implementation: Closed
 
 ## Example IBC Transfer Flows
 
