@@ -1,3 +1,5 @@
+#![deny(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
+
 //! IBC Attestor Library
 //!
 //! This library provides the core functionality for the IBC attestor service,
@@ -18,12 +20,16 @@ pub mod signer;
 
 mod error;
 
-// Proto definitions
+/// Attestor and IBC proto definitions
 pub mod proto {
+    /// Attestor protos
+    #[allow(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
     pub mod attestor {
         tonic::include_proto!("ibc_attestor");
     }
 
+    /// Remote signer protos
+    #[allow(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
     pub mod signer {
         tonic::include_proto!("signerservice");
     }

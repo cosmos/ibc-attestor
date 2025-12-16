@@ -26,6 +26,7 @@ pub struct LocalSigner {
 }
 
 impl LocalSigner {
+    /// Creates a new instance of [`LocalSigner`]
     pub fn new(signer: PrivateKeySigner) -> Self {
         Self { inner: signer }
     }
@@ -47,13 +48,16 @@ impl SignerBuilder for LocalSigner {
         };
 
         let with_expanded_home = if keystore_path_with_file.starts_with("~/") {
-            let home =
-                std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).map_err(|_| {
+            let home = std::env::var("HOME")
+                .or_else(|_| std::env::var("USERPROFILE"))
+                .map_err(|_| {
                     SignerError::ConfigError(
                         "unable to determine home directory from environment".to_string(),
                     )
                 })?;
-            keystore_path_with_file.to_string_lossy().replace("~", &home)
+            keystore_path_with_file
+                .to_string_lossy()
+                .replace("~", &home)
         } else {
             keystore_path_with_file.to_string_lossy().to_string()
         };

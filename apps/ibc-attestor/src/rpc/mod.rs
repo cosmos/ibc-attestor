@@ -12,6 +12,7 @@ pub mod api {
 mod attestor;
 mod interceptor;
 mod middleware;
+/// Server implementation and assembly
 pub mod server;
 
 pub use interceptor::tracing_interceptor;

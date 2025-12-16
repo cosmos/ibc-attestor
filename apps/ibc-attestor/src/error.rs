@@ -9,28 +9,41 @@ use crate::signer::SignerError;
 /// Errors that can occur while working with attestor
 #[derive(Debug, Error)]
 pub enum AttestorError {
+    /// Requested block is not finalized
     #[error("Block is not finalized")]
     BlockNotFinalized,
 
+    /// Malformed commitment
     #[error("Packet commitment found but invalid due to: {reason}")]
-    InvalidCommitment { reason: String },
+    InvalidCommitment {
+        /// Why commitment is bad
+        reason: String,
+    },
 
+    /// Missing commitment
     #[error("Commitment not found client_id={client_id}, sequence={sequence} at height={height}")]
     CommitmentNotFound {
+        /// Client Id
         client_id: String,
+        /// Sequence ID
         sequence: u64,
+        /// Block height
         height: u64,
     },
 
+    /// Failed to sign data
     #[error("Failed to sign attestation due to: {0}")]
     SignerError(String),
 
+    /// Failed to initialize signer
     #[error("Signer initialization failed: {0}")]
     SignerInitError(#[from] SignerError),
 
+    /// Failed to de/encode as ABI
     #[error("AbiError: {0}")]
     AbiError(#[from] AbiError),
 
+    /// Failed to retrieve data from adapter
     #[error("AdapterError: {0}")]
     AdapterError(#[from] AttestationAdapterError),
 }
