@@ -26,6 +26,7 @@ Legend
     - Implementation: [cosmos/ibc-go attestor light client](https://github.com/cosmos/ibc-go/tree/main/modules/light-clients/attestations)
 - Token Factory:
     - Description: Chain-dependent module that handles core asset logic and is configured with the IBC stack to initiate outgoing and/or process incoming IBC packets.
+    - Integration: [IFT Specs Cosmos SDK Integration](https://github.com/cosmos/ibc-attestor/blob/main/docs/ift.md#cosmos-sdk-integration)
 
 **EVM Contracts**
 - Core IBC Contracts
