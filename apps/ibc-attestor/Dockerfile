@@ -18,16 +18,24 @@ COPY proto proto
 
 RUN cargo build --bin ibc_attestor --release --locked
 
-# Use distroless base image with glibc for a minimal, secure runtime
-FROM gcr.io/distroless/cc-debian12:nonroot
+FROM debian:bullseye-slim
 
-# Copy the binary from the build stage
-COPY --from=build --chown=nonroot:nonroot /app/target/release/ibc_attestor /usr/local/bin/ibc_attestor
+ARG PORT
 
-# Run as non-root user (provided by distroless nonroot image)
-USER nonroot:nonroot
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user to run the application
+RUN useradd -m -u 1000 -s /bin/bash attestor
+
+WORKDIR /usr/local/bin
+COPY --from=build --chown=attestor:attestor /app/target/release/ibc_attestor /usr/local/bin/ibc_attestor
+
+# Run as non-root user
+USER attestor
 
 # The chain type must be specified when running the container
 # Mounts should be used to provide the configuration file
 # Example: docker run ... ibc_attestor server --config /tmp/attestor.toml --chain-type evm
-ENTRYPOINT ["/usr/local/bin/ibc_attestor"]
+ENTRYPOINT ["ibc_attestor"]
