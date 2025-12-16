@@ -103,7 +103,7 @@ The attestor signing algorithm is a follows:
 3. Send the encoded message to the signer which first hashes and then signs the data in ECDSA 65-byte recoverable signature (r||s||v)
 
 Any new signer implementations **must guarantee**:
-- Arbitrary ABI-encoded data is hash before signing
+- Arbitrary ABI-encoded data is hashed before signing
 - The signature is in the ECDSA 65-byte recoverable signature (r||s||v)
 
 ## Observability
