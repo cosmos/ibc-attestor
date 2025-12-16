@@ -3,33 +3,107 @@ name: release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The tag of the image to build'
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  ORG: ${{ github.repository_owner }}
+  IMAGE_NAME: ibc-attestor
+  GIT_TAG: "${{ inputs.tag || github.ref_name }}"
 
 jobs:
-  release-ibc-attestor:
-    runs-on: depot-ubuntu-24.04-4
+  build-image:
+    permissions:
+      packages: write
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: depot-ubuntu-24.04-4
+          - platform: linux/arm64
+            runner: depot-ubuntu-24.04-arm-4
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+          ref: "${{ env.GIT_TAG }}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push ibc attestor image
-        uses: docker/build-push-action@v5
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/ibc-attestor/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ github.ref_name }}
-            ghcr.io/${{ github.repository_owner }}/latest
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,"name=${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE_NAME }}",push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p ${{ runner.temp }}/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.runner }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-and-publish:
+    runs-on: depot-ubuntu-24.04-4
+    permissions:
+      packages: write
+      contents: read
+    needs:
+      - build-image
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare Docker tag
+        id: tags
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            DOCKER_TAG="${{ inputs.tag }}"
+          else
+            DOCKER_TAG="${{ github.ref_name }}"
+          fi
+          echo "DOCKER_TAG=${DOCKER_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE_NAME }}:${{ steps.tags.outputs.DOCKER_TAG }} \
+            --tag ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE_NAME }}:latest \
+            $(printf '${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
