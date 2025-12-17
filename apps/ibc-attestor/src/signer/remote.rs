@@ -96,7 +96,7 @@ impl Signer for RemoteSigner {
             .wallet
             .ok_or_else(|| SignerError::RemoteError("wallet not found".to_string()))?;
 
-        let address = Address::from_slice(&wallet.address_bytes);
+        let address = Address::from_raw_public_key(&wallet.pubkey);
         debug!(
             message_len = message.len(),
             wallet_id = %self.wallet_id,
