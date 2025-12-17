@@ -8,7 +8,7 @@ use url::Url;
 
 use super::{Signer, SignerBuilder, SignerError};
 use crate::proto::signer::{
-    GetWalletRequest, PubKeyType, RawMessage, SignRequest,
+    GetWalletRequest, PubKeyType, RecoverableMessage, SignRequest,
     signer_service_client::SignerServiceClient,
 };
 
@@ -96,11 +96,13 @@ impl Signer for RemoteSigner {
 
         let request = tonic::Request::new(SignRequest {
             wallet_id: wallet.id,
-            payload: Some(crate::proto::signer::sign_request::Payload::RawMessage(
-                RawMessage {
-                    message: message.to_vec(),
-                },
-            )),
+            payload: Some(
+                crate::proto::signer::sign_request::Payload::RecoverableMessage(
+                    RecoverableMessage {
+                        message: message.to_vec(),
+                    },
+                ),
+            ),
         });
 
         let response = client
@@ -114,11 +116,16 @@ impl Signer for RemoteSigner {
             .ok_or_else(|| SignerError::RemoteError("no signature in response".to_string()))?;
 
         // Extract raw signature bytes
-        let signature_bytes = match signature {
-            crate::proto::signer::sign_response::Signature::RawSignature(raw) => raw.signature,
+        let signature_bytes: Vec<_> = match signature {
+            crate::proto::signer::sign_response::Signature::RecoverableSignature(recoverable) => {
+                [recoverable.r, recoverable.s, recoverable.v]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+            }
             _ => {
                 return Err(SignerError::InvalidSignature(
-                    "expected raw signature".to_string(),
+                    "expected resoverable signature".to_string(),
                 ));
             }
         };
