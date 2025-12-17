@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-use alloy_primitives::{Address, Signature};
+use alloy_primitives::Signature;
 use async_trait::async_trait;
 use tonic::transport::Endpoint;
-use tracing::{debug, info};
+use tracing::info;
 use url::Url;
 
 use super::{Signer, SignerBuilder, SignerError};
@@ -86,26 +86,16 @@ impl Signer for RemoteSigner {
             pubkey_type: PubKeyType::Ethereum as i32,
         });
 
-        let wallet_response = client
+        let wallet = client
             .get_wallet(wallet_request)
             .await
-            .map_err(|e| SignerError::RemoteError(e.to_string()))?;
-
-        let wallet = wallet_response
+            .map_err(|e| SignerError::RemoteError(e.to_string()))?
             .into_inner()
             .wallet
             .ok_or_else(|| SignerError::RemoteError("wallet not found".to_string()))?;
 
-        let address = Address::from_raw_public_key(&wallet.pubkey);
-        debug!(
-            message_len = message.len(),
-            wallet_id = %self.wallet_id,
-            address = %address,
-            "signing with remote signer"
-        );
-
         let request = tonic::Request::new(SignRequest {
-            wallet_id: self.wallet_id.clone(),
+            wallet_id: wallet.id,
             payload: Some(crate::proto::signer::sign_request::Payload::RawMessage(
                 RawMessage {
                     message: message.to_vec(),
