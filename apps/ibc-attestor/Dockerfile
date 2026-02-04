@@ -1,4 +1,4 @@
-FROM rust:1.88-bullseye AS build
+FROM rust:1.88-bookworm AS builder
 
 RUN apt-get update && apt-get install -y
 
@@ -24,22 +24,32 @@ COPY proto proto
 
 RUN cargo build --bin ibc_attestor --release --locked
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -r -u 65532 -g nogroup nonroot
 
-# Create a non-root user to run the application
-RUN useradd -m -u 1000 -s /bin/bash attestor
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+ARG COMMIT
+LABEL org.opencontainers.image.title="ibc-attestor" \
+      org.opencontainers.image.description="Cosmos IBC Attestor" \
+      org.opencontainers.image.source="https://github.com/cosmos/ibc-attestor" \
+      org.opencontainers.image.revision=$VCS_REF \
+      org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.version=$VERSION
 
-WORKDIR /usr/local/bin
-COPY --from=build --chown=attestor:attestor /app/target/release/ibc_attestor /usr/local/bin/ibc_attestor
+COPY --from=builder --chown=nonroot:nogroup /app/target/release/ibc_attestor /bin/ibc_attestor
 
-# Run as non-root user
-USER attestor
-
+ENV PLATFORM_COMMIT=${COMMIT}
+EXPOSE 8090 9000
+USER nonroot:nogroup
 # The chain type must be specified when running the container
 # Mounts should be used to provide the configuration file
 # Example: docker run ... ibc_attestor server --config /tmp/attestor.toml --chain-type evm
 ENTRYPOINT ["ibc_attestor"]
+
