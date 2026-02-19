@@ -16,8 +16,8 @@ pub async fn sign_attestation(
 ) -> Result<SignedAttestation, AttestorError> {
     debug!(height, timestamp, "signing attestation");
 
-    let tagged_message = payload.tagged_message();
-    let signature = signer.sign(&tagged_message).await.map_err(|e| {
+    let tagged_signing_input = payload.tagged_signing_input();
+    let signature = signer.sign(&tagged_signing_input).await.map_err(|e| {
         error!(
             height,
             error = %e,
@@ -97,7 +97,8 @@ mod tests {
             .await
             .unwrap();
 
-        let verify_msg = AttestationPayload::new(data, AttestationType::State).tagged_message();
+        let verify_msg =
+            AttestationPayload::new(data, AttestationType::State).tagged_signing_input();
         let recovered = recover_address(&verify_msg, &result.signature).unwrap();
         assert_eq!(recovered, expected_address);
     }
@@ -114,7 +115,8 @@ mod tests {
             .await
             .unwrap();
 
-        let wrong_msg = AttestationPayload::new(data, AttestationType::Packet).tagged_message();
+        let wrong_msg =
+            AttestationPayload::new(data, AttestationType::Packet).tagged_signing_input();
         let recovered = recover_address(&wrong_msg, &result.signature).unwrap();
         assert_ne!(recovered, expected_address);
     }
@@ -199,7 +201,7 @@ mod tests {
 
         // Attacker tries to use the packet signature in a state attestation context
         let state_msg =
-            AttestationPayload::new(packet_data, AttestationType::State).tagged_message();
+            AttestationPayload::new(packet_data, AttestationType::State).tagged_signing_input();
         let recovered = recover_address(&state_msg, &packet_signed.signature).unwrap();
 
         assert_ne!(recovered, expected_address);

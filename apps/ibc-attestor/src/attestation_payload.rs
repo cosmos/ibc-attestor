@@ -43,7 +43,7 @@ impl AttestationPayload {
 
     /// Construct the 33-byte tagged message: `type_tag || sha256(data)`.
     #[must_use]
-    pub fn tagged_message(&self) -> Vec<u8> {
+    pub fn tagged_signing_input(&self) -> Vec<u8> {
         let inner_hash = Sha256::digest(&self.data);
         let mut tagged = Vec::with_capacity(33);
         tagged.push(self.attestation_type.as_byte());
@@ -82,58 +82,62 @@ mod tests {
     }
 
     #[test]
-    fn tagged_message_is_33_bytes() {
+    fn tagged_signing_input_is_33_bytes() {
         let tagged =
             AttestationPayload::new(b"some attestation data".to_vec(), AttestationType::State);
-        let msg = tagged.tagged_message();
+        let msg = tagged.tagged_signing_input();
         assert_eq!(msg.len(), 33);
         assert_eq!(msg[0], AttestationType::State.as_byte());
     }
 
     #[test]
-    fn tagged_message_starts_with_domain_byte() {
+    fn tagged_signing_input_starts_with_domain_byte() {
         assert_eq!(
-            AttestationPayload::new(b"data".to_vec(), AttestationType::State).tagged_message()[0],
+            AttestationPayload::new(b"data".to_vec(), AttestationType::State)
+                .tagged_signing_input()[0],
             0x01
         );
         assert_eq!(
-            AttestationPayload::new(b"data".to_vec(), AttestationType::Packet).tagged_message()[0],
+            AttestationPayload::new(b"data".to_vec(), AttestationType::Packet)
+                .tagged_signing_input()[0],
             0x02
         );
     }
 
     #[test]
-    fn tagged_message_suffix_is_sha256_of_data() {
+    fn tagged_signing_input_suffix_is_sha256_of_data() {
         let data = b"test data";
         let expected_hash = Sha256::digest(data);
-        let msg = AttestationPayload::new(data.to_vec(), AttestationType::State).tagged_message();
+        let msg =
+            AttestationPayload::new(data.to_vec(), AttestationType::State).tagged_signing_input();
         assert_eq!(&msg[1..], expected_hash.as_slice());
     }
 
     #[test]
-    fn different_domains_produce_different_tagged_messages() {
+    fn different_domains_produce_different_tagged_signing_inputs() {
         let data = b"identical data".to_vec();
         let state_msg =
-            AttestationPayload::new(data.clone(), AttestationType::State).tagged_message();
-        let packet_msg = AttestationPayload::new(data, AttestationType::Packet).tagged_message();
+            AttestationPayload::new(data.clone(), AttestationType::State).tagged_signing_input();
+        let packet_msg =
+            AttestationPayload::new(data, AttestationType::Packet).tagged_signing_input();
         assert_ne!(state_msg, packet_msg);
     }
 
     #[test]
     fn same_domain_same_data_is_deterministic() {
         let a = AttestationPayload::new(b"deterministic check".to_vec(), AttestationType::State)
-            .tagged_message();
+            .tagged_signing_input();
         let b = AttestationPayload::new(b"deterministic check".to_vec(), AttestationType::State)
-            .tagged_message();
+            .tagged_signing_input();
         assert_eq!(a, b);
     }
 
     #[test]
-    fn different_data_produces_different_tagged_messages() {
-        let a =
-            AttestationPayload::new(b"data-a".to_vec(), AttestationType::State).tagged_message();
-        let b =
-            AttestationPayload::new(b"data-b".to_vec(), AttestationType::State).tagged_message();
+    fn different_data_produces_different_tagged_signing_inputs() {
+        let a = AttestationPayload::new(b"data-a".to_vec(), AttestationType::State)
+            .tagged_signing_input();
+        let b = AttestationPayload::new(b"data-b".to_vec(), AttestationType::State)
+            .tagged_signing_input();
         assert_ne!(a, b);
     }
 
@@ -161,7 +165,7 @@ mod tests {
     fn domain_tagged_digest_matches_manual_computation() {
         let data = b"verify digest";
         let tagged = AttestationPayload::new(data.to_vec(), AttestationType::State);
-        let msg = tagged.tagged_message();
+        let msg = tagged.tagged_signing_input();
 
         // The signer will compute sha256(msg), which should equal
         // sha256(0x01 || sha256(data))
