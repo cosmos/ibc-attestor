@@ -3,10 +3,10 @@ use tracing::{debug, error};
 pub use crate::attestation_payload::{AttestationPayload, AttestationType};
 use crate::{AttestorError, signer::Signer};
 
-/// Sign attestation data with domain separation.
+/// Create an ECDSA signature over the attestation payload for on-chain verification.
 ///
-/// The signature is computed over `sha256(type_tag || sha256(attested_data))`
-/// to prevent cross-protocol replay between state and packet attestations.
+/// Uses domain separation to prevent cross-protocol replay between state and
+/// packet attestations: `sha256(type_tag || sha256(attested_data))`.
 #[tracing::instrument(skip(payload, signer), fields(height, attestation_type = ?payload.attestation_type(), data_len = payload.data().len()))]
 pub async fn sign_attestation(
     height: u64,
