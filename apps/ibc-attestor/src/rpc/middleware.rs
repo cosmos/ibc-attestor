@@ -58,7 +58,11 @@ where
 
         match &result {
             Ok(response) => {
-                info!(height = response.get_ref().height, durationMs = duration_ms, status = "ok",);
+                info!(
+                    height = response.get_ref().height,
+                    durationMs = duration_ms,
+                    status = "ok",
+                );
             }
             Err(e) => {
                 info!(
@@ -83,8 +87,16 @@ where
 
         match &result {
             Ok(response) => {
-                let timestamp = response.get_ref().attestation.as_ref().and_then(|a| a.timestamp);
-                info!(timestamp = timestamp, durationMs = duration_ms, status = "ok",);
+                let timestamp = response
+                    .get_ref()
+                    .attestation
+                    .as_ref()
+                    .and_then(|a| a.timestamp);
+                info!(
+                    timestamp = timestamp,
+                    durationMs = duration_ms,
+                    status = "ok",
+                );
             }
             Err(e) => {
                 info!(

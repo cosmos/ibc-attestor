@@ -4,10 +4,10 @@ use tokio::sync::broadcast;
 use tonic::transport::Server;
 use tracing::{error, info};
 
-use super::{attestor::AttestorService, tracing_interceptor, LoggingMiddleware, RpcError};
+use super::{LoggingMiddleware, RpcError, attestor::AttestorService, tracing_interceptor};
 use crate::adapter::AttestationAdapter;
-use crate::rpc::api::attestation_service_server::AttestationServiceServer;
 use crate::rpc::api::FILE_DESCRIPTOR_SET;
+use crate::rpc::api::attestation_service_server::AttestationServiceServer;
 use crate::signer::Signer;
 
 /// Start the gRPC server with attestation and reflection services.

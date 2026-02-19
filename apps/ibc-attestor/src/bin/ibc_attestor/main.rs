@@ -5,29 +5,29 @@ use clap::Parser;
 use ethereum_keys::signer_local::{read_from_keystore, write_to_keystore};
 use ibc_attestor::{
     adapter::{
+        AdapterBuilder,
         cosmos::{CosmosAdapterBuilder, CosmosAdapterConfig},
         evm::{EvmAdapterBuilder, EvmAdapterConfig},
         solana::{SolanaAdapterBuilder, SolanaAdapterConfig},
-        AdapterBuilder,
     },
     config::AttestorConfig,
     logging::init_logging,
-    rpc::{server, RpcError},
+    rpc::{RpcError, server},
     signer::{
-        local::{LocalSigner, LocalSignerConfig, DEFAULT_KEYSTORE_NAME},
-        remote::{RemoteSigner, RemoteSignerConfig},
         SignerBuilder,
+        local::{DEFAULT_KEYSTORE_NAME, LocalSigner, LocalSignerConfig},
+        remote::{RemoteSigner, RemoteSignerConfig},
     },
 };
 
 use tokio::{
-    signal::unix::{signal, SignalKind},
+    signal::unix::{SignalKind, signal},
     sync::broadcast,
     task::JoinHandle,
 };
 use tracing::info;
 
-use crate::cli::{key::KeyCommands, AttestorCli, ChainType, Commands, SignerType};
+use crate::cli::{AttestorCli, ChainType, Commands, SignerType, key::KeyCommands};
 
 mod cli;
 
