@@ -1,4 +1,4 @@
-use tonic::{metadata::MetadataMap, Request, Status};
+use tonic::{Request, Status, metadata::MetadataMap};
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 

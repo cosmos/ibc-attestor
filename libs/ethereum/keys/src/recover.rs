@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, Signature, B256};
+use alloy_primitives::{Address, B256, Signature};
 
 /// Compute SHA-256 of message and recover the address from a 65-byte signature.
 pub fn recover_address(message: &[u8], signature_65: &[u8]) -> Result<Address, anyhow::Error> {
