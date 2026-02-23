@@ -9,6 +9,8 @@
 pub mod adapter;
 /// Attestation signing and data structures
 pub mod attestation;
+/// Attestation payload and type separation for signatures
+pub mod attestation_payload;
 /// Configuration structures and loading
 pub mod config;
 /// Logging and observability setup

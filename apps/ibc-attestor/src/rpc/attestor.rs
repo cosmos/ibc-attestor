@@ -11,6 +11,7 @@ use crate::{
     AttestorError, Packets,
     adapter::AttestationAdapter,
     attestation::{SignedAttestation, sign_attestation},
+    attestation_payload::{AttestationPayload, AttestationType},
     rpc::api::{
         Attestation, CommitmentType, LatestHeightRequest, LatestHeightResponse,
         PacketAttestationRequest, PacketAttestationResponse, StateAttestationRequest,
@@ -93,8 +94,13 @@ where
         let attested_data = unsigned_attestation.abi_encode();
 
         // Signed attestation
-        let attestation =
-            sign_attestation(height, Some(timestamp), attested_data, &self.signer).await?;
+        let attestation = sign_attestation(
+            height,
+            Some(timestamp),
+            AttestationPayload::new(attested_data, AttestationType::State),
+            &self.signer,
+        )
+        .await?;
 
         Ok(Response::from(attestation))
     }
@@ -117,7 +123,13 @@ where
         let attested_data = unsigned_attestation.abi_encode();
 
         // Signed attestation
-        let attestation = sign_attestation(height, None, attested_data, &self.signer).await?;
+        let attestation = sign_attestation(
+            height,
+            None,
+            AttestationPayload::new(attested_data, AttestationType::Packet),
+            &self.signer,
+        )
+        .await?;
 
         Ok(Response::from(attestation))
     }
