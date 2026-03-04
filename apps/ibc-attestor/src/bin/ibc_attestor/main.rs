@@ -1,4 +1,4 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, net::SocketAddr, path::PathBuf};
 
 use alloy_signer_local::PrivateKeySigner;
 use clap::Parser;
@@ -12,7 +12,7 @@ use ibc_attestor::{
     },
     config::AttestorConfig,
     logging::init_logging,
-    rpc::{RpcError, server},
+    rpc::{RpcError, health, server},
     signer::{
         SignerBuilder,
         local::{DEFAULT_KEYSTORE_NAME, LocalSigner, LocalSignerConfig},
@@ -45,23 +45,69 @@ fn default_attestor_dir() -> Result<PathBuf, anyhow::Error> {
 
 fn run_server_with_adapter_and_signer<B: AdapterBuilder, S: SignerBuilder>(
     config: AttestorConfig<B::Config, S::Config>,
-    shutdown_rx: broadcast::Receiver<()>,
+    shutdown_tx: broadcast::Sender<()>,
 ) -> Result<JoinHandle<Result<(), RpcError>>, anyhow::Error> {
     let adapter = B::build(config.adapter)?;
     let signer = S::build(config.signer)?;
+    let listen_addr = config.server.listen_addr;
+    let health_addr = config.server.health_addr;
 
     Ok(tokio::spawn(async move {
-        // Start rpc server
-        server::start(
-            config.server.listen_addr,
+        run_servers(
+            listen_addr,
+            health_addr,
             adapter,
             B::adapter_name(),
             signer,
             S::signer_name(),
-            shutdown_rx,
+            shutdown_tx,
         )
         .await
     }))
+}
+
+async fn run_servers<A, S>(
+    grpc_addr: SocketAddr,
+    health_addr: SocketAddr,
+    adapter: A,
+    adapter_name: &'static str,
+    signer: S,
+    signer_name: &'static str,
+    shutdown_tx: broadcast::Sender<()>,
+) -> Result<(), RpcError>
+where
+    A: ibc_attestor::adapter::AttestationAdapter,
+    S: ibc_attestor::signer::Signer,
+{
+    let grpc_shutdown_rx = shutdown_tx.subscribe();
+    let health_shutdown_rx = shutdown_tx.subscribe();
+
+    let grpc_handle = tokio::spawn(async move {
+        server::start(
+            grpc_addr,
+            adapter,
+            adapter_name,
+            signer,
+            signer_name,
+            grpc_shutdown_rx,
+        )
+        .await
+    });
+
+    let health_handle = tokio::spawn(async move {
+        health::start(health_addr, grpc_addr, health_shutdown_rx).await;
+    });
+
+    let grpc_result = grpc_handle.await;
+    health_handle.await.ok();
+
+    match grpc_result {
+        Ok(result) => result,
+        Err(e) => {
+            tracing::error!(error = ?e, "gRPC server task panicked");
+            Ok(())
+        }
+    }
 }
 
 #[tokio::main]
@@ -74,7 +120,7 @@ async fn main() -> Result<(), anyhow::Error> {
             init_logging();
 
             // Create shutdown broadcast channel
-            let (shutdown_tx, shutdown_rx) = broadcast::channel(1);
+            let (shutdown_tx, _shutdown_rx) = broadcast::channel(1);
 
             let rpc_handle = match (args.chain_type, args.signer_type) {
                 (ChainType::Evm, SignerType::Local) => {
@@ -83,7 +129,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     )?;
                     run_server_with_adapter_and_signer::<EvmAdapterBuilder, LocalSigner>(
                         config,
-                        shutdown_rx,
+                        shutdown_tx.clone(),
                     )?
                 }
                 (ChainType::Evm, SignerType::Remote) => {
@@ -92,7 +138,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     )?;
                     run_server_with_adapter_and_signer::<EvmAdapterBuilder, RemoteSigner>(
                         config,
-                        shutdown_rx,
+                        shutdown_tx.clone(),
                     )?
                 }
                 (ChainType::Solana, SignerType::Local) => {
@@ -102,7 +148,7 @@ async fn main() -> Result<(), anyhow::Error> {
                         )?;
                     run_server_with_adapter_and_signer::<SolanaAdapterBuilder, LocalSigner>(
                         config,
-                        shutdown_rx,
+                        shutdown_tx.clone(),
                     )?
                 }
                 (ChainType::Solana, SignerType::Remote) => {
@@ -112,7 +158,7 @@ async fn main() -> Result<(), anyhow::Error> {
                         )?;
                     run_server_with_adapter_and_signer::<SolanaAdapterBuilder, RemoteSigner>(
                         config,
-                        shutdown_rx,
+                        shutdown_tx.clone(),
                     )?
                 }
                 (ChainType::Cosmos, SignerType::Local) => {
@@ -122,7 +168,7 @@ async fn main() -> Result<(), anyhow::Error> {
                         )?;
                     run_server_with_adapter_and_signer::<CosmosAdapterBuilder, LocalSigner>(
                         config,
-                        shutdown_rx,
+                        shutdown_tx.clone(),
                     )?
                 }
                 (ChainType::Cosmos, SignerType::Remote) => {
@@ -132,7 +178,7 @@ async fn main() -> Result<(), anyhow::Error> {
                         )?;
                     run_server_with_adapter_and_signer::<CosmosAdapterBuilder, RemoteSigner>(
                         config,
-                        shutdown_rx,
+                        shutdown_tx.clone(),
                     )?
                 }
             };

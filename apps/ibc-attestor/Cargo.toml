@@ -75,6 +75,8 @@ tracing-opentelemetry = { workspace = true }
 opentelemetry = { workspace = true, features = ["trace"] }
 opentelemetry_sdk = { workspace = true, features = ["rt-tokio"] }
 
+warp = { workspace = true, features = ["server"] }
+
 ethereum-keys = { workspace = true, features = ["signer", "signer-local"] }
 ibc-eureka-solidity-types = { workspace = true, default-features = true, features = [
     "rpc",

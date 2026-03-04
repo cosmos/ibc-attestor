@@ -34,11 +34,13 @@ where
     }
 }
 
-/// The configuration for the relayer server.
+/// The configuration for the attestor server.
 #[derive(Clone, Debug, Deserialize)]
 pub struct ServerConfig {
-    /// The address that the server should listen on.
+    /// The address that the gRPC server should listen on.
     pub listen_addr: SocketAddr,
+    /// The address that the HTTP health server should listen on.
+    pub health_addr: SocketAddr,
 }
 
 /// Errors that can occur loading the attestor config.

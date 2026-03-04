@@ -10,6 +10,8 @@ pub mod api {
 }
 
 mod attestor;
+/// HTTP health check server
+pub mod health;
 mod interceptor;
 mod middleware;
 /// Server implementation and assembly

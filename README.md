@@ -106,6 +106,26 @@ Any new signer implementations **must guarantee**:
 
 ## Observability
 
+### Health Check
+
+The attestor exposes an HTTP health endpoint for Kubernetes readiness probes and load balancer health checks.
+
+| Endpoint | Method | Response |
+|----------|--------|----------|
+| `/healthz` | GET | HTTP 200 when ready, HTTP 503 when not ready |
+
+Configure the health server address in the `[server]` section:
+
+```toml
+[server]
+listen_addr = "0.0.0.0:8080"
+health_addr = "0.0.0.0:8081"
+```
+
+The health endpoint verifies the gRPC server is accepting connections before returning 200. This ensures the `/healthz` endpoint only passes when the attestor is fully operational. The server handles SIGTERM/SIGINT for graceful shutdown.
+
+### Logging and Tracing
+
 The IBC attestor uses a logging middleware to time requests, set trace IDs and to add structured fieds to traces. Currently these fields include:
 - Adapter kind
 - Signer kind
@@ -113,13 +133,14 @@ The IBC attestor uses a logging middleware to time requests, set trace IDs and t
 - Number of packets (where applicable)
 - Packet commitment kind (where applicable)
 
-### Logging
+#### Logging
 
 - Logs are emitted in JSON format
 - Errors must be logged at occurence to simplify line number tracing
 - Info logs should be reserved for middleware and startup operations
 - Debug logs should capture adapter and attestation creation operations
 
-### Tracing
+#### Tracing
+
 - OpenTelemetry-compatible spans
 - Minimal request time tracking
