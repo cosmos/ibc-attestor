@@ -11,7 +11,7 @@ use super::attestor::AttestorService;
 use crate::adapter::AttestationAdapter;
 use crate::signer::Signer;
 
-/// Logging middleware that wraps the AttestorService structured spans and request duration.
+/// Logging middleware that wraps the `AttestorService` structured spans and request duration.
 ///
 /// This middleware logs each RPC method call with:
 /// - Adapter identification (derived from the service)
@@ -20,23 +20,23 @@ use crate::signer::Signer;
 /// - Performance metrics (durationMs)
 /// - Status (ok/error) and error messages
 ///
-/// Errors are logged inline by the [AttestorService] and [AttestationAdapter] implementaitons
+/// Errors are logged inline by the [`AttestorService`] and [`AttestationAdapter`] implementaitons
 /// to simplify line tracing.
 ///
 /// Fields in logs use *camelCase* convention for consistency.
 ///
-/// All logs will be correlated via the trace_id provided by the OpenTelemetry layer.
+/// All logs will be correlated via the `trace_id` provided by the OpenTelemetry layer.
 pub struct LoggingMiddleware<A, S> {
     inner: AttestorService<A, S>,
 }
 
 impl<A, S> LoggingMiddleware<A, S> {
-    /// Create a new LoggingAttestorService that wraps an AttestorService implementation.
+    /// Create a new `LoggingAttestorService` that wraps an `AttestorService` implementation.
     ///
     /// # Arguments
     ///
-    /// * `inner` - The AttestorService implementation to wrap
-    pub fn new(inner: AttestorService<A, S>) -> Self {
+    /// * `inner` - The `AttestorService` implementation to wrap
+    pub const fn new(inner: AttestorService<A, S>) -> Self {
         Self { inner }
     }
 }
@@ -54,7 +54,7 @@ where
     ) -> Result<Response<LatestHeightResponse>, Status> {
         let start = Instant::now();
         let result = self.inner.latest_height(request).await;
-        let duration_ms = start.elapsed().as_millis() as u64;
+        let duration_ms = start.elapsed().as_millis();
 
         match &result {
             Ok(response) => {
@@ -83,7 +83,7 @@ where
     ) -> Result<Response<StateAttestationResponse>, Status> {
         let start = Instant::now();
         let result = self.inner.state_attestation(request).await;
-        let duration_ms = start.elapsed().as_millis() as u64;
+        let duration_ms = start.elapsed().as_millis();
 
         match &result {
             Ok(response) => {
@@ -126,7 +126,7 @@ where
     ) -> Result<Response<PacketAttestationResponse>, Status> {
         let start = Instant::now();
         let result = self.inner.packet_attestation(request).await;
-        let duration_ms = start.elapsed().as_millis() as u64;
+        let duration_ms = start.elapsed().as_millis();
 
         match &result {
             Ok(_) => {

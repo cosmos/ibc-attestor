@@ -26,7 +26,7 @@ pub trait Signer: Send + Sync + 'static {
 /// Trait for building signer implementations
 ///
 /// This trait provides a generic interface for constructing signers,
-/// similar to the AdapterBuilder pattern used for attestation adapters.
+/// similar to the `AdapterBuilder` pattern used for attestation adapters.
 pub trait SignerBuilder {
     /// Configuration needed for signer
     type Config: Clone + Send + 'static;
@@ -37,6 +37,10 @@ pub trait SignerBuilder {
     fn signer_name() -> &'static str;
 
     /// Build the specific signer implementation
+    ///
+    /// # Errors
+    /// Returns a [`SignerError`] if the signer cannot be constructed from the
+    /// provided configuration.
     fn build(config: Self::Config) -> Result<Self::Signer, SignerError>;
 }
 

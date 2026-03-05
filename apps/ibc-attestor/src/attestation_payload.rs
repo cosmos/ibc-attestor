@@ -34,7 +34,7 @@ pub struct AttestationPayload {
 impl AttestationPayload {
     /// Bind ABI-encoded `data` to the given [`AttestationType`].
     #[must_use]
-    pub fn new(data: Vec<u8>, attestation_type: AttestationType) -> Self {
+    pub const fn new(data: Vec<u8>, attestation_type: AttestationType) -> Self {
         Self {
             attestation_type,
             data,

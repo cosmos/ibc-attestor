@@ -18,7 +18,7 @@ pub struct LocalSignerConfig {
     pub keystore_path: PathBuf,
 }
 
-/// Local signer implementation using PrivateKeySigner
+/// Local signer implementation using `PrivateKeySigner`
 ///
 /// Wraps the existing synchronous signing logic in an async interface
 pub struct LocalSigner {
@@ -27,7 +27,8 @@ pub struct LocalSigner {
 
 impl LocalSigner {
     /// Creates a new instance of [`LocalSigner`]
-    pub fn new(signer: PrivateKeySigner) -> Self {
+    #[must_use] 
+    pub const fn new(signer: PrivateKeySigner) -> Self {
         Self { inner: signer }
     }
 }
@@ -57,7 +58,7 @@ impl SignerBuilder for LocalSigner {
                 })?;
             keystore_path_with_file
                 .to_string_lossy()
-                .replace("~", &home)
+                .replace('~', &home)
         } else {
             keystore_path_with_file.to_string_lossy().to_string()
         };
