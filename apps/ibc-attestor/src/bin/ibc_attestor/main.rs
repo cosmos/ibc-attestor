@@ -10,7 +10,7 @@ use ibc_attestor::{
         evm::{EvmAdapterBuilder, EvmAdapterConfig},
         solana::{SolanaAdapterBuilder, SolanaAdapterConfig},
     },
-    config::AttestorConfig,
+    config::{AttestorConfig, TracingConfig},
     logging::init_logging,
     rpc::{RpcError, server},
     signer::{
@@ -70,8 +70,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
     match cli.command {
         Commands::Server(args) => {
-            // Initialize logging
-            init_logging();
+            // Load tracing config first to initialize logging before parsing full config
+            let tracing_config = TracingConfig::from_file(&args.config)?;
+            let _tracing_guard = init_logging(tracing_config);
 
             // Create shutdown broadcast channel
             let (shutdown_tx, shutdown_rx) = broadcast::channel(1);
@@ -79,7 +80,7 @@ async fn main() -> Result<(), anyhow::Error> {
             let rpc_handle = match (args.chain_type, args.signer_type) {
                 (ChainType::Evm, SignerType::Local) => {
                     let config = AttestorConfig::<EvmAdapterConfig, LocalSignerConfig>::from_file(
-                        args.config,
+                        &args.config,
                     )?;
                     run_server_with_adapter_and_signer::<EvmAdapterBuilder, LocalSigner>(
                         config,
@@ -88,7 +89,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 }
                 (ChainType::Evm, SignerType::Remote) => {
                     let config = AttestorConfig::<EvmAdapterConfig, RemoteSignerConfig>::from_file(
-                        args.config,
+                        &args.config,
                     )?;
                     run_server_with_adapter_and_signer::<EvmAdapterBuilder, RemoteSigner>(
                         config,
@@ -98,7 +99,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 (ChainType::Solana, SignerType::Local) => {
                     let config =
                         AttestorConfig::<SolanaAdapterConfig, LocalSignerConfig>::from_file(
-                            args.config,
+                            &args.config,
                         )?;
                     run_server_with_adapter_and_signer::<SolanaAdapterBuilder, LocalSigner>(
                         config,
@@ -108,7 +109,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 (ChainType::Solana, SignerType::Remote) => {
                     let config =
                         AttestorConfig::<SolanaAdapterConfig, RemoteSignerConfig>::from_file(
-                            args.config,
+                            &args.config,
                         )?;
                     run_server_with_adapter_and_signer::<SolanaAdapterBuilder, RemoteSigner>(
                         config,
@@ -118,7 +119,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 (ChainType::Cosmos, SignerType::Local) => {
                     let config =
                         AttestorConfig::<CosmosAdapterConfig, LocalSignerConfig>::from_file(
-                            args.config,
+                            &args.config,
                         )?;
                     run_server_with_adapter_and_signer::<CosmosAdapterBuilder, LocalSigner>(
                         config,
@@ -128,7 +129,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 (ChainType::Cosmos, SignerType::Remote) => {
                     let config =
                         AttestorConfig::<CosmosAdapterConfig, RemoteSignerConfig>::from_file(
-                            args.config,
+                            &args.config,
                         )?;
                     run_server_with_adapter_and_signer::<CosmosAdapterBuilder, RemoteSigner>(
                         config,
