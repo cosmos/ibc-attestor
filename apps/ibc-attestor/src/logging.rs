@@ -68,10 +68,10 @@ pub fn init_logging(config: Option<TracingConfig>) -> TracingGuard {
 }
 
 fn build_exporter_tracer(config: &TracingConfig) -> SdkTracerProvider {
-    let sampler = if (0.0..1.0).contains(&config.sample_rate) {
-        Sampler::TraceIdRatioBased(config.sample_rate)
-    } else {
+    let sampler = if config.sample_rate == 1.0 {
         Sampler::AlwaysOn
+    } else {
+        Sampler::TraceIdRatioBased(config.sample_rate)
     };
 
     let exporter = SpanExporter::builder()

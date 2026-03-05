@@ -21,7 +21,8 @@ The `[tracing]` section is all-or-nothing: either provide a complete section wit
 ### Sample Rate Behavior
 
 - Values in `[0.0, 1.0)`: Uses `TraceIdRatioBased` sampling (e.g., `0.1` samples 10% of traces)
-- Values `>= 1.0`: Uses `AlwaysOn` sampling (all traces captured)
+- Value `1.0`: Uses `AlwaysOn` sampling (all traces captured)
+- Any value outside `[0.0, 1.0]` is rejected during config loading
 
 ### Sample Rate Recommendations
 

@@ -33,7 +33,11 @@ where
         let path_ref = path.as_ref();
         let contents = fs::read_to_string(path_ref)
             .map_err(|e| ConfigError::Io(path_ref.display().to_string(), e))?;
-        let cfg = toml::from_str(&contents)?;
+        let mut cfg: Self = toml::from_str(&contents)?;
+        cfg.tracing = cfg
+            .tracing
+            .map(TracingConfig::validate)
+            .transpose()?;
         Ok(cfg)
     }
 }
@@ -65,6 +69,17 @@ struct PartialConfig {
 }
 
 impl TracingConfig {
+    fn validate(self) -> Result<Self, ConfigError> {
+        if !self.sample_rate.is_finite() || !(0.0..=1.0).contains(&self.sample_rate) {
+            return Err(ConfigError::InvalidTracingConfig(format!(
+                "`tracing.sample_rate` must be a finite value in [0.0, 1.0], got {}",
+                self.sample_rate
+            )));
+        }
+
+        Ok(self)
+    }
+
     /// Load just the tracing configuration from a TOML file.
     ///
     /// This allows initializing the tracer before parsing the full config,
@@ -79,7 +94,7 @@ impl TracingConfig {
         let contents = fs::read_to_string(path_ref)
             .map_err(|e| ConfigError::Io(path_ref.display().to_string(), e))?;
         let partial: PartialConfig = toml::from_str(&contents)?;
-        Ok(partial.tracing)
+        partial.tracing.map(Self::validate).transpose()
     }
 }
 
@@ -93,4 +108,8 @@ pub enum ConfigError {
     /// Malformed toml
     #[error("invalid TOML in config: {0}")]
     Toml(#[from] toml::de::Error),
+
+    /// Invalid tracing section values
+    #[error("invalid tracing config: {0}")]
+    InvalidTracingConfig(String),
 }
