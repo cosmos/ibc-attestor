@@ -27,7 +27,7 @@ pub struct LocalSigner {
 
 impl LocalSigner {
     /// Creates a new instance of [`LocalSigner`]
-    #[must_use] 
+    #[must_use]
     pub const fn new(signer: PrivateKeySigner) -> Self {
         Self { inner: signer }
     }
