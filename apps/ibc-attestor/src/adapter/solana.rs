@@ -89,7 +89,8 @@ impl AttestationAdapter for SolanaAdapter {
                     .get_slot_with_commitment(CommitmentConfig::finalized())
                     .await
                     .map_err(|err| {
-                        error!(error = %err, "failed to fetch finalized slot from Solana chain");
+                        // error log emitted by retry module
+                        debug!(error = %err, "failed to fetch finalized slot from Solana chain");
                         AttestationAdapterError::RetrievalError(err.to_string())
                     })
             },
@@ -109,7 +110,8 @@ impl AttestationAdapter for SolanaAdapter {
         let block_time =
             with_retry_backoff("solana.get_block_timestamp.get_block_time", || async {
                 self.client.get_block_time(slot).await.map_err(|err| {
-                    error!(error = %err, "failed to fetch block time from Solana chain");
+                    // error log emitted by retry module
+                    debug!(error = %err, "failed to fetch block time from Solana chain");
                     AttestationAdapterError::RetrievalError(err.to_string())
                 })
             })
@@ -153,14 +155,15 @@ impl AttestationAdapter for SolanaAdapter {
                     .get_account_with_commitment(&commitment_pda, CommitmentConfig::finalized())
                     .await
                     .map_err(|e| {
-                error!(
-                    error = %e,
-                    "failed to get commitment account from Solana chain"
-                );
-                AttestationAdapterError::RetrievalError(format!(
-                    "Failed to get commitment account for client_id={}, sequence={}, slot={}: {}",
-                    client_id, sequence, slot, e
-                ))
+                        // error log emitted by retry module
+                        debug!(
+                            error = %e,
+                            "failed to get commitment account from Solana chain"
+                        );
+                        AttestationAdapterError::RetrievalError(format!(
+                            "Failed to get commitment account for client_id={}, sequence={}, slot={}: {}",
+                            client_id, sequence, slot, e
+                        ))
                     })
             },
         )

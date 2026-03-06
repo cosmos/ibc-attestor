@@ -86,7 +86,8 @@ impl AttestationAdapter for EvmAdapter {
 
         let block = with_retry_backoff("evm.get_last_height.get_block", || async {
             self.client.get_block(block_id).await.map_err(|err| {
-                error!(error = %err, "failed to fetch block from EVM chain");
+                // error log emitted by retry module
+                debug!(error = %err, "failed to fetch block from EVM chain");
                 AttestationAdapterError::RetrievalError(err.to_string())
             })
         })
@@ -133,7 +134,8 @@ impl AttestationAdapter for EvmAdapter {
                 .get_block(BlockId::number(height))
                 .await
                 .map_err(|err| {
-                    error!(error = %err, "failed to fetch block from EVM chain");
+                    // error log emitted by retry module
+                    debug!(error = %err, "failed to fetch block from EVM chain");
                     AttestationAdapterError::RetrievalError(err.to_string())
                 })
         })
@@ -171,7 +173,8 @@ impl AttestationAdapter for EvmAdapter {
                 .call()
                 .await
                 .map_err(|e| {
-                    error!(
+                    // error log emitted by retry module
+                    debug!(
                         pathHash = %hex::encode(hashed_path),
                         error = %e,
                         "failed to call getCommitment on EVM router contract"

@@ -75,7 +75,8 @@ impl CosmosAdapter {
                         .v2_packet_commitment(client_id, sequence, height, false)
                         .await
                         .map_err(|err| {
-                            error!(
+                            // error log emitted by retry module
+                            debug!(
                                 error = %err,
                                 "failed to fetch packet commitment from Cosmos chain"
                             );
@@ -111,7 +112,8 @@ impl CosmosAdapter {
                         .v2_packet_acknowledgement(client_id, sequence, height)
                         .await
                         .map_err(|err| {
-                            error!(
+                            // error log emitted by retry module
+                            debug!(
                                 error = %err,
                                 "failed to fetch ack commitment from Cosmos chain"
                             );
@@ -147,7 +149,8 @@ impl CosmosAdapter {
                         .v2_packet_receipt(client_id, sequence, height)
                         .await
                         .map_err(|err| {
-                            error!(
+                            // error log emitted by retry module
+                            debug!(
                                 error = %err,
                                 "failed to fetch receipt commitment from Cosmos chain"
                             );
@@ -177,7 +180,8 @@ impl AttestationAdapter for CosmosAdapter {
 
         let block = with_retry_backoff("cosmos.get_last_height.latest_commit", || async {
             self.client.latest_commit().await.map_err(|err| {
-                error!(error = %err, "failed to fetch latest commit from Cosmos chain");
+                // error log emitted by retry module
+                debug!(error = %err, "failed to fetch latest commit from Cosmos chain");
                 AttestationAdapterError::RetrievalError(err.to_string())
             })
         })
@@ -198,7 +202,8 @@ impl AttestationAdapter for CosmosAdapter {
 
         let block = with_retry_backoff("cosmos.get_block_timestamp.commit", || async {
             self.client.commit(height).await.map_err(|err| {
-                error!(error = %err, "failed to fetch block from Cosmos chain");
+                // error log emitted by retry module
+                debug!(error = %err, "failed to fetch block from Cosmos chain");
                 AttestationAdapterError::RetrievalError(err.to_string())
             })
         })
