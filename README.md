@@ -91,6 +91,18 @@ To add support for new kinds of chains you need to implement the `AttestationAda
 
 The CLI must also be extended to support any new chain types.
 
+#### Adapter retry and backoff policy
+
+Adapter RPC calls use a shared retry helper based on `tokio-retry`:
+- Strategy: exponential backoff
+- Initial delay: 200ms
+- Backoff factor: 2x
+- Maximum backoff delay: 2s
+- Attempts: 3 total (initial attempt + 2 retries)
+
+Retries are currently applied only to transient retrieval failures (`RetrievalError`) and are shared across Cosmos, EVM, and Solana adapter implementations.
+This policy is intentionally code-defined (not part of the application config) to keep the service configuration surface minimal.
+
 ### Signing requirements
 
 Currently the IBC attestor supports two signing modes: local and remote. The remote signer is based on the Cosmos Labs remote signer which uses AWS KMS for key rotation.
