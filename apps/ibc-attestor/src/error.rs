@@ -52,18 +52,18 @@ impl From<AttestorError> for Status {
     fn from(value: AttestorError) -> Self {
         match value {
             AttestorError::BlockNotFinalized => {
-                Status::new(Code::FailedPrecondition, value.to_string())
+                Self::new(Code::FailedPrecondition, value.to_string())
             }
             AttestorError::CommitmentNotFound { .. } => {
-                Status::new(Code::NotFound, value.to_string())
+                Self::new(Code::NotFound, value.to_string())
             }
             AttestorError::InvalidCommitment { .. } => {
-                Status::new(Code::InvalidArgument, value.to_string())
+                Self::new(Code::InvalidArgument, value.to_string())
             }
             AttestorError::SignerError(_) | AttestorError::SignerInitError(_) => {
-                Status::new(Code::Internal, value.to_string())
+                Self::new(Code::Internal, value.to_string())
             }
-            _ => Status::new(Code::Internal, value.to_string()),
+            _ => Self::new(Code::Internal, value.to_string()),
         }
     }
 }

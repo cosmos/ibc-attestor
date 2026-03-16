@@ -10,8 +10,8 @@ pub struct AttestorConfig<A, S> {
     /// The configuration for the attestor server.
     pub server: ServerConfig,
     /// Signer configuration (generic over signer type) See:
-    /// - [crate::signer::local::LocalSignerConfig] for local config options
-    /// - [crate::signer::remote::RemoteSignerConfig] for remote config options
+    /// - [`crate::signer::local::LocalSignerConfig`] for local config options
+    /// - [`crate::signer::remote::RemoteSignerConfig`] for remote config options
     pub signer: S,
     /// Adapter specific configuration
     pub adapter: A,
@@ -24,7 +24,11 @@ where
 {
     /// Load an `AttestorConfig` from a TOML file on disk.
     ///
-    /// Accepts any `P: AsRef<Path>` (e.g. &str, String, Path, PathBuf).
+    /// Accepts any `P: AsRef<Path>` (e.g. &str, String, Path, `PathBuf`).
+    ///
+    /// # Errors
+    /// Returns [`ConfigError::Io`] if the file cannot be read, or
+    /// [`ConfigError::Parse`] if the TOML is invalid.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
         let path_ref = path.as_ref();
         let contents = fs::read_to_string(path_ref)

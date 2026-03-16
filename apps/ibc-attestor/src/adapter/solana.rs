@@ -145,8 +145,7 @@ impl AttestationAdapter for SolanaAdapter {
                     "failed to get commitment account from Solana chain"
                 );
                 AttestationAdapterError::RetrievalError(format!(
-                    "Failed to get commitment account for client_id={}, sequence={}, slot={}: {}",
-                    client_id, sequence, slot, e
+                    "Failed to get commitment account for client_id={client_id}, sequence={sequence}, slot={slot}: {e}"
                 ))
             })?
             .value;

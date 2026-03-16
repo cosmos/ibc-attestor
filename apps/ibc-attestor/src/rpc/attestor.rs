@@ -34,7 +34,7 @@ pub struct AttestorService<A, S> {
 }
 
 impl<A, S> AttestorService<A, S> {
-    pub fn new(
+    pub const fn new(
         adapter: A,
         adapter_name: &'static str,
         signer: S,
@@ -48,11 +48,11 @@ impl<A, S> AttestorService<A, S> {
         }
     }
 
-    pub fn adapter_name(&self) -> &'static str {
+    pub const fn adapter_name(&self) -> &'static str {
         self.adapter_name
     }
 
-    pub fn signer_name(&self) -> &'static str {
+    pub const fn signer_name(&self) -> &'static str {
         self.signer_name
     }
 }
@@ -111,7 +111,7 @@ where
     ) -> Result<Response<PacketAttestationResponse>, Status> {
         let request_inner = request.into_inner();
         let height = request_inner.height;
-        let packets = Packets::try_from_abi_encoded(request_inner.packets)?;
+        let packets = Packets::try_from_abi_encoded(&request_inner.packets)?;
         let commitment_type = CommitmentType::try_from(request_inner.commitment_type)
             .unwrap_or(CommitmentType::Packet);
 
@@ -352,7 +352,7 @@ impl From<SignedAttestation> for Response<StateAttestationResponse> {
             signature: signed.signature,
         };
 
-        Response::new(StateAttestationResponse {
+        Self::new(StateAttestationResponse {
             attestation: Some(attestation),
         })
     }
@@ -367,7 +367,7 @@ impl From<SignedAttestation> for Response<PacketAttestationResponse> {
             signature: signed.signature,
         };
 
-        Response::new(PacketAttestationResponse {
+        Self::new(PacketAttestationResponse {
             attestation: Some(attestation),
         })
     }

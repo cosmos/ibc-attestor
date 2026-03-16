@@ -7,6 +7,9 @@ use crate::{AttestorError, signer::Signer};
 ///
 /// Uses domain separation to prevent cross-protocol replay between state and
 /// packet attestations: `sha256(type_tag || sha256(attested_data))`.
+///
+/// # Errors
+/// Returns [`AttestorError::SignerError`] if signing fails.
 #[tracing::instrument(skip(payload, signer), fields(height, attestation_type = ?payload.attestation_type(), data_len = payload.data().len()))]
 pub async fn sign_attestation(
     height: u64,
