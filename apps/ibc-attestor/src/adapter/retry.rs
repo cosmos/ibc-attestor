@@ -36,8 +36,7 @@ where
                 maxAttempts = MAX_ATTEMPTS,
                 "request attempt"
             );
-            let fut = request();
-            async move { fut.await }
+            request()
         },
         |error: &AttestationAdapterError| {
             matches!(error, AttestationAdapterError::RetrievalError(_))
