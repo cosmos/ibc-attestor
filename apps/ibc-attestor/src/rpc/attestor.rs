@@ -112,8 +112,8 @@ where
         let request_inner = request.into_inner();
         let height = request_inner.height;
         let packets = Packets::try_from_abi_encoded(&request_inner.packets)?;
-        let commitment_type = CommitmentType::try_from(request_inner.commitment_type)
-            .unwrap_or(CommitmentType::Packet);
+        let commitment_type =
+            CommitmentType::try_from(request_inner.commitment_type).map_err(AttestorError::from)?;
 
         validate_height(&self.adapter, height).await?;
 
