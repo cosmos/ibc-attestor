@@ -1,6 +1,6 @@
 use alloy_primitives::keccak256;
 use alloy_sol_types::SolValue;
-use futures::{StreamExt, stream::FuturesUnordered};
+use futures::{StreamExt, stream::FuturesOrdered};
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 use ibc_eureka_solidity_types::msgs::IAttestationMsgs;
 use tonic::{Request, Response, Status};
@@ -164,7 +164,7 @@ async fn create_packets_attestation(
     let futures = packets
         .into_iter()
         .map(|packet| create_single_packet_attestation(adapter, height, packet, commitment_type))
-        .collect::<FuturesUnordered<_>>();
+        .collect::<FuturesOrdered<_>>();
     let validations = futures.collect::<Vec<_>>().await;
 
     // We handle packets only if all are valid
