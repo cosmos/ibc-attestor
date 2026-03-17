@@ -47,9 +47,9 @@ pub enum AttestorError {
     #[error("AdapterError: {0}")]
     AdapterError(#[from] AttestationAdapterError),
 
-    /// Failed to decode Commitment tye
-    #[error("AbiError: {0}")]
-    MalformedCommitmentType(#[from] prost::UnknownEnumValue),
+    /// Failed to decode commitment type
+    #[error("MalformedCommitmentError: {0}")]
+    MalformedCommitmentError(#[from] prost::UnknownEnumValue),
 }
 
 impl From<AttestorError> for Status {
