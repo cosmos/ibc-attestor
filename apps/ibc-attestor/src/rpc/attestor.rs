@@ -317,19 +317,11 @@ async fn handle_receipt_commitment(
         )
         .await?;
 
-    // If commitment is `None` we set it to empty commitment
-    let commitment = commitment.unwrap_or([0; 32]);
-
     // The expected commitment is empty commitment (for timeout proofs)
-    if commitment == [0; 32] {
-        debug!("receipt commitment validated (zero/non-existent as expected)");
-        Ok(IAttestationMsgs::PacketCompact {
-            path: keccak256(commitment_path),
-            commitment: commitment.into(),
-        })
-    } else {
+    // so flag when commitment exists
+    if let Some(commit) = commitment {
         error!(
-            actual = %hex::encode(commitment),
+            actual = %hex::encode(commit),
             "receipt commitment should be zero but found non-zero value"
         );
         Err(AttestorError::InvalidCommitment {
@@ -337,8 +329,14 @@ async fn handle_receipt_commitment(
                 "Receipt commitment should be zero for client_id={} seq={}: got 0x{}",
                 client_id,
                 sequence,
-                hex::encode(commitment)
+                hex::encode(commit)
             ),
+        })
+    } else {
+        debug!("receipt commitment validated (zero/non-existent as expected)");
+        Ok(IAttestationMsgs::PacketCompact {
+            path: keccak256(commitment_path),
+            commitment: [0; 32].into(),
         })
     }
 }
