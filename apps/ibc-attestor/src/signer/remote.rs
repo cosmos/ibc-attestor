@@ -15,7 +15,7 @@ use crate::proto::signer::{
 /// Configuration for building a remote signer
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct RemoteSignerConfig {
-    /// gRPC endpoint (e.g., "http://localhost:50051")
+    /// gRPC endpoint (e.g., "<http://localhost:50051>")
     pub endpoint: Url,
     /// Wallet ID to use for signing
     pub wallet_id: String,

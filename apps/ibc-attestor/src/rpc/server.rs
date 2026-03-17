@@ -11,6 +11,14 @@ use crate::rpc::api::attestation_service_server::AttestationServiceServer;
 use crate::signer::Signer;
 
 /// Start the gRPC server with attestation and reflection services.
+///
+/// # Errors
+/// Returns [`RpcError::ServerError`] if the server fails to start or encounters
+/// a fatal error during operation.
+///
+/// # Panics
+/// Panics if the embedded protobuf file descriptor set is invalid. This should
+/// never occur in practice as it's validated at compile time.
 #[tracing::instrument(skip_all, fields(listen_addr = %listen_addr, adapter = adapter_name))]
 pub async fn start<A, S>(
     listen_addr: SocketAddr,

@@ -98,8 +98,15 @@ impl AttestationAdapter for EvmAdapter {
             AttestationAdapterError::BlockNotFinalized
         })?;
 
-        let finalized_height = match self.config.finality_offset {
-            Some(offset) => {
+        let finalized_height = self.config.finality_offset.map_or_else(
+            || {
+                debug!(
+                    finalizedHeight = block.number(),
+                    "using finalized block tag"
+                );
+                block.number()
+            },
+            |offset| {
                 let latest = block.number();
                 let finalized = latest.saturating_sub(offset);
                 debug!(
@@ -109,15 +116,8 @@ impl AttestationAdapter for EvmAdapter {
                     "calculated finalized height using offset"
                 );
                 finalized
-            }
-            None => {
-                debug!(
-                    finalizedHeight = block.number(),
-                    "using finalized block tag"
-                );
-                block.number()
-            }
-        };
+            },
+        );
 
         debug!(
             finalizedHeight = finalized_height,
@@ -185,15 +185,15 @@ impl AttestationAdapter for EvmAdapter {
         .await?;
 
         // Array of 0s means not found
-        if !commitment.is_zero() {
+        if commitment.is_zero() {
+            debug!("commitment not found (zero bytes)");
+            Ok(None)
+        } else {
             debug!(
                 commitment = %hex::encode(commitment),
                 "commitment found"
             );
             Ok(Some(commitment.into()))
-        } else {
-            debug!("commitment not found (zero bytes)");
-            Ok(None)
         }
     }
 }

@@ -52,18 +52,59 @@ impl From<AttestorError> for Status {
     fn from(value: AttestorError) -> Self {
         match value {
             AttestorError::BlockNotFinalized => {
-                Status::new(Code::FailedPrecondition, value.to_string())
+                Self::new(Code::FailedPrecondition, value.to_string())
             }
             AttestorError::CommitmentNotFound { .. } => {
-                Status::new(Code::NotFound, value.to_string())
+                Self::new(Code::NotFound, value.to_string())
             }
             AttestorError::InvalidCommitment { .. } => {
-                Status::new(Code::InvalidArgument, value.to_string())
+                Self::new(Code::InvalidArgument, value.to_string())
             }
             AttestorError::SignerError(_) | AttestorError::SignerInitError(_) => {
-                Status::new(Code::Internal, value.to_string())
+                Self::new(Code::Internal, value.to_string())
             }
-            _ => Status::new(Code::Internal, value.to_string()),
+            _ => Self::new(Code::Internal, value.to_string()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::signer::SignerError;
+
+    #[test]
+    fn block_not_finalized_maps_to_failed_precondition() {
+        let status = Status::from(AttestorError::BlockNotFinalized);
+        assert_eq!(status.code(), Code::FailedPrecondition);
+    }
+
+    #[test]
+    fn commitment_not_found_maps_to_not_found() {
+        let status = Status::from(AttestorError::CommitmentNotFound {
+            client_id: "client-a".to_string(),
+            sequence: 1,
+            height: 10,
+        });
+        assert_eq!(status.code(), Code::NotFound);
+    }
+
+    #[test]
+    fn invalid_commitment_maps_to_invalid_argument() {
+        let status = Status::from(AttestorError::InvalidCommitment {
+            reason: "mismatch".to_string(),
+        });
+        assert_eq!(status.code(), Code::InvalidArgument);
+    }
+
+    #[test]
+    fn signer_errors_map_to_internal() {
+        let status = Status::from(AttestorError::SignerError("boom".to_string()));
+        assert_eq!(status.code(), Code::Internal);
+
+        let init_status = Status::from(AttestorError::SignerInitError(SignerError::ConfigError(
+            "bad cfg".to_string(),
+        )));
+        assert_eq!(init_status.code(), Code::Internal);
     }
 }

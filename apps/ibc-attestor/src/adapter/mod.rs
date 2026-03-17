@@ -41,6 +41,9 @@ pub trait AdapterBuilder {
     fn adapter_name() -> &'static str;
 
     /// Build the specific attestor
+    ///
+    /// # Errors
+    /// Returns [`AttestationAdapterError::ConfigError`] if the configuration is invalid.
     fn build(config: Self::Config) -> Result<Self::Adapter, AttestationAdapterError>;
 }
 

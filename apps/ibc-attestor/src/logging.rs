@@ -12,8 +12,8 @@ use tracing_subscriber::{
 ///
 /// Sets up tracing-subscriber with:
 /// - JSON formatting with RFC 3339 UTC timestamps
-/// - OpenTelemetry layer for trace_id and span_id in logs
-/// - Environment variable configuration via RUST_LOG (defaults to "info")
+/// - OpenTelemetry layer for `trace_id` and `span_id` in logs
+/// - Environment variable configuration via `RUST_LOG` (defaults to "info")
 /// - W3C Trace Context propagation for distributed tracing
 pub fn init_logging() {
     let env_filter = EnvFilter::builder()
