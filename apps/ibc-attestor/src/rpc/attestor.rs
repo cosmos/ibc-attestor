@@ -319,26 +319,29 @@ async fn handle_receipt_commitment(
 
     // The expected commitment is empty commitment (for timeout proofs)
     // so flag when commitment exists
-    if let Some(commit) = commitment {
-        error!(
-            actual = %hex::encode(commit),
-            "receipt commitment should be zero but found non-zero value"
-        );
-        Err(AttestorError::InvalidCommitment {
-            reason: format!(
-                "Receipt commitment should be zero for client_id={} seq={}: got 0x{}",
-                client_id,
-                sequence,
-                hex::encode(commit)
-            ),
-        })
-    } else {
-        debug!("receipt commitment validated (zero/non-existent as expected)");
-        Ok(IAttestationMsgs::PacketCompact {
-            path: keccak256(commitment_path),
-            commitment: [0; 32].into(),
-        })
-    }
+    commitment.map_or_else(
+        || {
+            debug!("receipt commitment validated (zero/non-existent as expected)");
+            Ok(IAttestationMsgs::PacketCompact {
+                path: keccak256(commitment_path),
+                commitment: [0; 32].into(),
+            })
+        },
+        |commit| {
+            error!(
+                actual = %hex::encode(commit),
+                "receipt commitment should be zero but found non-zero value"
+            );
+            Err(AttestorError::InvalidCommitment {
+                reason: format!(
+                    "Receipt commitment should be zero for client_id={} seq={}: got 0x{}",
+                    client_id,
+                    sequence,
+                    hex::encode(commit)
+                ),
+            })
+        },
+    )
 }
 
 impl From<SignedAttestation> for Response<StateAttestationResponse> {
