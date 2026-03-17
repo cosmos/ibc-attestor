@@ -204,7 +204,7 @@ async fn handle_packet_commitment(
     commitment_type: CommitmentType,
 ) -> Result<IAttestationMsgs::PacketCompact, AttestorError> {
     let commitment_path = packet.commitment_path();
-    let expected_path = packet.commitment();
+    let expected_commitment = packet.commitment();
     let client_id = packet.sourceClient.clone();
     let sequence = packet.sequence;
 
@@ -231,7 +231,7 @@ async fn handle_packet_commitment(
         }
     })?;
 
-    if expected_path == commitment {
+    if expected_commitment == commitment {
         debug!("packet commitment validated successfully");
         Ok(IAttestationMsgs::PacketCompact {
             path: keccak256(commitment_path),
@@ -239,7 +239,7 @@ async fn handle_packet_commitment(
         })
     } else {
         error!(
-            expected = %hex::encode(&expected_path),
+            expected = %hex::encode(&expected_commitment),
             actual = %hex::encode(commitment),
             "packet commitment mismatch"
         );
@@ -248,7 +248,7 @@ async fn handle_packet_commitment(
                 "Packet commitment mismatch for client_id={} seq={}: expected 0x{}, got 0x{}",
                 client_id,
                 sequence,
-                hex::encode(&expected_path),
+                hex::encode(&expected_commitment),
                 hex::encode(commitment)
             ),
         })
