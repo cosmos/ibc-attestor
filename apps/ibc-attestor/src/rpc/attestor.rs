@@ -638,7 +638,7 @@ mod tests {
         );
 
         let encoded = vec![packet_a.abi_encode(), packet_b.abi_encode()];
-        let packets = crate::Packets::try_from_abi_encoded(encoded).expect("packets must decode");
+        let packets = crate::Packets::try_from_abi_encoded(&encoded).expect("packets must decode");
 
         let result =
             create_packets_attestation(&adapter, packets, 60, CommitmentType::Packet).await;
@@ -681,7 +681,7 @@ mod tests {
         );
 
         let encoded = vec![packet_a.abi_encode(), packet_b.abi_encode()];
-        let packets = crate::Packets::try_from_abi_encoded(encoded).expect("packets must decode");
+        let packets = crate::Packets::try_from_abi_encoded(&encoded).expect("packets must decode");
 
         let result =
             create_packets_attestation(&adapter, packets, 70, CommitmentType::Packet).await;

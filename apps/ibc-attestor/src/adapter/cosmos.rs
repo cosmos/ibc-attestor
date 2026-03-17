@@ -5,7 +5,9 @@ use tendermint_rpc::{Client, HttpClient, Url};
 use tracing::{debug, error, info};
 
 use crate::{
-    adapter::{AdapterBuilder, AttestationAdapter, AttestationAdapterError},
+    adapter::{
+        AdapterBuilder, AttestationAdapter, AttestationAdapterError, retry::with_retry_backoff,
+    },
     rpc::api::CommitmentType,
 };
 
@@ -65,17 +67,24 @@ impl CosmosAdapter {
     ) -> Result<Option<Vec<u8>>, AttestationAdapterError> {
         debug!("fetching packet commitment from Cosmos chain");
 
-        let result = self
-            .client
-            .v2_packet_commitment(client_id.clone(), sequence, height, false)
-            .await
-            .map_err(|err| {
-                error!(
-                    error = %err,
-                    "failed to fetch packet commitment from Cosmos chain"
-                );
-                AttestationAdapterError::RetrievalError(err.to_string())
-            })?;
+        let result =
+            with_retry_backoff("cosmos.get_packet_commitment.v2_packet_commitment", || {
+                let client_id = client_id.clone();
+                async move {
+                    self.client
+                        .v2_packet_commitment(client_id, sequence, height, false)
+                        .await
+                        .map_err(|err| {
+                            // error log emitted by retry module
+                            debug!(
+                                error = %err,
+                                "failed to fetch packet commitment from Cosmos chain"
+                            );
+                            AttestationAdapterError::RetrievalError(err.to_string())
+                        })
+                }
+            })
+            .await?;
 
         if result.commitment.is_empty() {
             debug!("packet commitment not found (empty)");
@@ -94,17 +103,26 @@ impl CosmosAdapter {
     ) -> Result<Option<Vec<u8>>, AttestationAdapterError> {
         debug!("fetching ack commitment from Cosmos chain");
 
-        let result = self
-            .client
-            .v2_packet_acknowledgement(client_id.clone(), sequence, height)
-            .await
-            .map_err(|err| {
-                error!(
-                    error = %err,
-                    "failed to fetch ack commitment from Cosmos chain"
-                );
-                AttestationAdapterError::RetrievalError(err.to_string())
-            })?;
+        let result = with_retry_backoff(
+            "cosmos.get_ack_commitment.v2_packet_acknowledgement",
+            || {
+                let client_id = client_id.clone();
+                async move {
+                    self.client
+                        .v2_packet_acknowledgement(client_id, sequence, height)
+                        .await
+                        .map_err(|err| {
+                            // error log emitted by retry module
+                            debug!(
+                                error = %err,
+                                "failed to fetch ack commitment from Cosmos chain"
+                            );
+                            AttestationAdapterError::RetrievalError(err.to_string())
+                        })
+                }
+            },
+        )
+        .await?;
 
         if result.acknowledgement.is_empty() {
             debug!("ack commitment not found (empty)");
@@ -123,17 +141,24 @@ impl CosmosAdapter {
     ) -> Result<Option<Vec<u8>>, AttestationAdapterError> {
         debug!("fetching receipt commitment from Cosmos chain");
 
-        let response = self
-            .client
-            .v2_packet_receipt(client_id.clone(), sequence, height)
-            .await
-            .map_err(|err| {
-                error!(
-                    error = %err,
-                    "failed to fetch receipt commitment from Cosmos chain"
-                );
-                AttestationAdapterError::RetrievalError(err.to_string())
-            })?;
+        let response =
+            with_retry_backoff("cosmos.get_receipt_commitment.v2_packet_receipt", || {
+                let client_id = client_id.clone();
+                async move {
+                    self.client
+                        .v2_packet_receipt(client_id, sequence, height)
+                        .await
+                        .map_err(|err| {
+                            // error log emitted by retry module
+                            debug!(
+                                error = %err,
+                                "failed to fetch receipt commitment from Cosmos chain"
+                            );
+                            AttestationAdapterError::RetrievalError(err.to_string())
+                        })
+                }
+            })
+            .await?;
 
         // Packet was received
         if response.received {
@@ -153,10 +178,14 @@ impl AttestationAdapter for CosmosAdapter {
     async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
         debug!("fetching last finalized height from Cosmos chain");
 
-        let block = self.client.latest_commit().await.map_err(|err| {
-            error!(error = %err, "failed to fetch latest commit from Cosmos chain");
-            AttestationAdapterError::RetrievalError(err.to_string())
-        })?;
+        let block = with_retry_backoff("cosmos.get_last_height.latest_commit", || async {
+            self.client.latest_commit().await.map_err(|err| {
+                // error log emitted by retry module
+                debug!(error = %err, "failed to fetch latest commit from Cosmos chain");
+                AttestationAdapterError::RetrievalError(err.to_string())
+            })
+        })
+        .await?;
 
         let height = block.signed_header.header().height.value();
         debug!(height, "retrieved last finalized height");
@@ -171,10 +200,14 @@ impl AttestationAdapter for CosmosAdapter {
             AttestationAdapterError::InvalidHeight
         })?;
 
-        let block = self.client.commit(height).await.map_err(|err| {
-            error!( error = %err, "failed to fetch block from Cosmos chain");
-            AttestationAdapterError::RetrievalError(err.to_string())
-        })?;
+        let block = with_retry_backoff("cosmos.get_block_timestamp.commit", || async {
+            self.client.commit(height).await.map_err(|err| {
+                // error log emitted by retry module
+                debug!(error = %err, "failed to fetch block from Cosmos chain");
+                AttestationAdapterError::RetrievalError(err.to_string())
+            })
+        })
+        .await?;
 
         let timestamp = block.signed_header.header.time.unix_timestamp();
         let timestamp = u64::try_from(timestamp).map_err(|err| {

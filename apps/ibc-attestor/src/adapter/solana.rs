@@ -6,7 +6,9 @@ use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use tracing::{debug, error, info};
 
-use crate::adapter::{AdapterBuilder, AttestationAdapter, AttestationAdapterError};
+use crate::adapter::{
+    AdapterBuilder, AttestationAdapter, AttestationAdapterError, retry::with_retry_backoff,
+};
 use crate::rpc::api::CommitmentType;
 
 /// The anchors discriminator length for the accounts data.
@@ -80,14 +82,20 @@ impl AttestationAdapter for SolanaAdapter {
     async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
         debug!("fetching last finalized slot from Solana chain");
 
-        let current_finalized_slot = self
-            .client
-            .get_slot_with_commitment(CommitmentConfig::finalized())
-            .await
-            .map_err(|err| {
-                error!(error = %err, "failed to fetch finalized slot from Solana chain");
-                AttestationAdapterError::RetrievalError(err.to_string())
-            })?;
+        let current_finalized_slot = with_retry_backoff(
+            "solana.get_last_height.get_slot_with_commitment",
+            || async {
+                self.client
+                    .get_slot_with_commitment(CommitmentConfig::finalized())
+                    .await
+                    .map_err(|err| {
+                        // error log emitted by retry module
+                        debug!(error = %err, "failed to fetch finalized slot from Solana chain");
+                        AttestationAdapterError::RetrievalError(err.to_string())
+                    })
+            },
+        )
+        .await?;
 
         debug!(
             slot = current_finalized_slot,
@@ -99,10 +107,15 @@ impl AttestationAdapter for SolanaAdapter {
     async fn get_block_timestamp(&self, slot: u64) -> Result<u64, AttestationAdapterError> {
         debug!("fetching block timestamp from Solana chain");
 
-        let block_time = self.client.get_block_time(slot).await.map_err(|err| {
-            error!(error = %err, "failed to fetch block time from Solana chain");
-            AttestationAdapterError::RetrievalError(err.to_string())
-        })?;
+        let block_time =
+            with_retry_backoff("solana.get_block_timestamp.get_block_time", || async {
+                self.client.get_block_time(slot).await.map_err(|err| {
+                    // error log emitted by retry module
+                    debug!(error = %err, "failed to fetch block time from Solana chain");
+                    AttestationAdapterError::RetrievalError(err.to_string())
+                })
+            })
+            .await?;
 
         let timestamp = u64::try_from(block_time).map_err(|err| {
             error!(blockTime = block_time, error = %err, "failed to convert block time to u64");
@@ -135,20 +148,26 @@ impl AttestationAdapter for SolanaAdapter {
             }
         };
 
-        let account = self
-            .client
-            .get_account_with_commitment(&commitment_pda, CommitmentConfig::finalized())
-            .await
-            .map_err(|e| {
-                error!(
-                    error = %e,
-                    "failed to get commitment account from Solana chain"
-                );
-                AttestationAdapterError::RetrievalError(format!(
-                    "Failed to get commitment account for client_id={client_id}, sequence={sequence}, slot={slot}: {e}"
-                ))
-            })?
-            .value;
+        let account = with_retry_backoff(
+            "solana.get_commitment.get_account_with_commitment",
+            || async {
+                self.client
+                    .get_account_with_commitment(&commitment_pda, CommitmentConfig::finalized())
+                    .await
+                    .map_err(|e| {
+                        // error log emitted by retry module
+                        debug!(
+                            error = %e,
+                            "failed to get commitment account from Solana chain"
+                        );
+                        AttestationAdapterError::RetrievalError(format!(
+                            "Failed to get commitment account for client_id={client_id}, sequence={sequence}, slot={slot}: {e}",
+                        ))
+                    })
+            },
+        )
+        .await?
+        .value;
 
         // Early return if account is not found
         let Some(account) = account else {

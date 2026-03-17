@@ -6,6 +6,7 @@ use crate::rpc::api::CommitmentType;
 pub mod cosmos;
 /// EVM adapter
 pub mod evm;
+mod retry;
 /// Solana Adatper
 pub mod solana;
 
