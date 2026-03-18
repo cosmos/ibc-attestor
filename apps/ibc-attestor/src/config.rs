@@ -6,11 +6,10 @@ use thiserror::Error;
 use url::Url;
 
 use crate::adapter::{
-    AdapterEnum, AttestationAdapterError,
+    AdapterBuilder, AdapterEnum, AttestationAdapterError,
     cosmos::{CosmosAdapterBuilder, CosmosAdapterConfig},
     evm::{EvmAdapterBuilder, EvmAdapterConfig},
     solana::{SolanaAdapterBuilder, SolanaAdapterConfig},
-    AdapterBuilder,
 };
 use crate::signer::{
     SignerBuilder, SignerEnum, SignerError,
