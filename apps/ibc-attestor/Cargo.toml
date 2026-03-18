@@ -75,6 +75,7 @@ tracing-subscriber = { workspace = true, features = [
 tracing-opentelemetry = { workspace = true }
 opentelemetry = { workspace = true, features = ["trace"] }
 opentelemetry_sdk = { workspace = true, features = ["rt-tokio"] }
+opentelemetry-otlp = { workspace = true, features = ["grpc-tonic", "trace"] }
 
 ethereum-keys = { workspace = true, features = ["signer", "signer-local"] }
 ibc-eureka-solidity-types = { workspace = true, default-features = true, features = [

@@ -133,5 +133,9 @@ The IBC attestor uses a logging middleware to time requests, set trace IDs and t
 - Debug logs should capture adapter and attestation creation operations
 
 ### Tracing
+
 - OpenTelemetry-compatible spans
 - Minimal request time tracking
+- OTLP export support for Grafana Tempo, Jaeger, and other backends
+
+See [Tracing Configuration](docs/tracing.md) for details on enabling OTLP trace export.

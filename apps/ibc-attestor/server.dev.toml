@@ -8,3 +8,8 @@ router_address = "0xff42b3db9f1040539a3741434e4b33b352fabd80"
 [signer]
 # Generate a key here by running the binary with `<binary> key generate`
 keystore_path = "~/.ibc-attestor/ibc-attestor-keystore"
+
+[tracing]
+otlp_endpoint = "http://localhost:4317"
+service_name = "ibc-attestor"
+sample_rate = 1.0
