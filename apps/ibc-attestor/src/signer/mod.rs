@@ -1,6 +1,9 @@
 use alloy_primitives::Signature;
 use async_trait::async_trait;
 
+use local::LocalSigner;
+use remote::RemoteSigner;
+
 /// Local signer implementation
 pub mod local;
 /// Cosmos remote signer implementation
@@ -42,6 +45,35 @@ pub trait SignerBuilder {
     /// Returns a [`SignerError`] if the signer cannot be constructed from the
     /// provided configuration.
     fn build(config: Self::Config) -> Result<Self::Signer, SignerError>;
+}
+
+/// Enum wrapping all concrete signer implementations.
+pub enum SignerEnum {
+    /// Local signer
+    Local(LocalSigner),
+    /// Remote signer
+    Remote(RemoteSigner),
+}
+
+impl SignerEnum {
+    /// Returns the name of the signer for logging.
+    #[must_use]
+    pub const fn signer_name(&self) -> &'static str {
+        match self {
+            Self::Local(_) => "local",
+            Self::Remote(_) => "remote",
+        }
+    }
+}
+
+#[async_trait]
+impl Signer for SignerEnum {
+    async fn sign(&self, message: &[u8]) -> Result<Signature, SignerError> {
+        match self {
+            Self::Local(s) => s.sign(message).await,
+            Self::Remote(s) => s.sign(message).await,
+        }
+    }
 }
 
 /// Errors that can occur during signing operations

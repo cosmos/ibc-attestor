@@ -2,6 +2,10 @@ use thiserror::Error;
 
 use crate::rpc::api::CommitmentType;
 
+use cosmos::CosmosAdapter;
+use evm::EvmAdapter;
+use solana::SolanaAdapter;
+
 /// Cosmos adapter
 pub mod cosmos;
 /// EVM adapter
@@ -45,6 +49,89 @@ pub trait AdapterBuilder {
     /// # Errors
     /// Returns [`AttestationAdapterError::ConfigError`] if the configuration is invalid.
     fn build(config: Self::Config) -> Result<Self::Adapter, AttestationAdapterError>;
+}
+
+/// Enum wrapping all concrete adapter implementations.
+pub enum AdapterEnum {
+    /// EVM adapter
+    Evm(EvmAdapter),
+    /// Solana adapter
+    Solana(SolanaAdapter),
+    /// Cosmos adapter
+    Cosmos(CosmosAdapter),
+}
+
+impl AdapterEnum {
+    /// Returns the name of the adapter for logging.
+    #[must_use]
+    pub const fn adapter_name(&self) -> &'static str {
+        match self {
+            Self::Evm(_) => "evm",
+            Self::Solana(_) => "solana",
+            Self::Cosmos(_) => "cosmos",
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl AttestationAdapter for AdapterEnum {
+    async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
+        match self {
+            Self::Evm(a) => a.get_last_height_at_configured_finality().await,
+            Self::Solana(a) => a.get_last_height_at_configured_finality().await,
+            Self::Cosmos(a) => a.get_last_height_at_configured_finality().await,
+        }
+    }
+
+    async fn get_block_timestamp(&self, height: u64) -> Result<u64, AttestationAdapterError> {
+        match self {
+            Self::Evm(a) => a.get_block_timestamp(height).await,
+            Self::Solana(a) => a.get_block_timestamp(height).await,
+            Self::Cosmos(a) => a.get_block_timestamp(height).await,
+        }
+    }
+
+    async fn get_commitment(
+        &self,
+        client_id: String,
+        height: u64,
+        sequence: u64,
+        commitment_path: &[u8],
+        commitment_type: CommitmentType,
+    ) -> Result<Option<[u8; 32]>, AttestationAdapterError> {
+        match self {
+            Self::Evm(a) => {
+                a.get_commitment(
+                    client_id,
+                    height,
+                    sequence,
+                    commitment_path,
+                    commitment_type,
+                )
+                .await
+            }
+            Self::Solana(a) => {
+                a.get_commitment(
+                    client_id,
+                    height,
+                    sequence,
+                    commitment_path,
+                    commitment_type,
+                )
+                .await
+            }
+            Self::Cosmos(a) => {
+                a.get_commitment(
+                    client_id,
+                    height,
+                    sequence,
+                    commitment_path,
+                    commitment_type,
+                )
+                .await
+            }
+        }
+    }
 }
 
 /// Attestation adapter methods needed to provide attestations for a given chain
