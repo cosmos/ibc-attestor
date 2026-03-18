@@ -6,7 +6,7 @@ use ethereum_keys::signer_local::{read_from_keystore, write_to_keystore};
 use ibc_attestor::{
     config::RuntimeConfig,
     logging::init_logging,
-    rpc::{RpcError, server},
+    rpc::{RpcError, health, server},
     signer::local::DEFAULT_KEYSTORE_NAME,
 };
 
@@ -33,24 +33,39 @@ fn default_attestor_dir() -> Result<PathBuf, anyhow::Error> {
     Ok(PathBuf::from(home).join(".ibc-attestor"))
 }
 
-fn run_server(
+type ServerHandles = (JoinHandle<Result<(), RpcError>>, JoinHandle<()>);
+
+fn run_servers(
     config: RuntimeConfig,
-    shutdown_rx: broadcast::Receiver<()>,
-) -> Result<JoinHandle<Result<(), RpcError>>, anyhow::Error> {
+    shutdown_tx: &broadcast::Sender<()>,
+) -> Result<ServerHandles, anyhow::Error> {
     let adapter_name = config.adapter.adapter_name();
     let signer_name = config.signer.signer_name();
+    let server_config = config.server;
 
-    Ok(tokio::spawn(async move {
+    let grpc_shutdown_rx = shutdown_tx.subscribe();
+    let health_shutdown_rx = shutdown_tx.subscribe();
+
+    let grpc_addr = server_config.listen_addr;
+    let health_addr = server_config.health_addr;
+
+    let grpc_handle = tokio::spawn(async move {
         server::start(
-            config.server.listen_addr,
+            grpc_addr,
             config.adapter,
             adapter_name,
             config.signer,
             signer_name,
-            shutdown_rx,
+            grpc_shutdown_rx,
         )
         .await
-    }))
+    });
+
+    let health_handle = tokio::spawn(async move {
+        health::start(health_addr, grpc_addr, health_shutdown_rx).await;
+    });
+
+    Ok((grpc_handle, health_handle))
 }
 
 #[tokio::main]
@@ -67,14 +82,15 @@ async fn main() -> Result<(), anyhow::Error> {
             let _tracing_guard = init_logging(config.tracing.clone());
 
             // Create shutdown broadcast channel
-            let (shutdown_tx, shutdown_rx) = broadcast::channel(1);
+            let (shutdown_tx, _shutdown_rx) = broadcast::channel(1);
 
-            let rpc_handle = run_server(config, shutdown_rx)?;
+            let (grpc_handle, health_handle) = run_servers(config, &shutdown_tx)?;
 
             _ = wait_for_shutdown_signal().await;
             info!("shutdown signal received, starting graceful shutdown");
             let _ = shutdown_tx.send(());
-            rpc_handle.await??;
+            grpc_handle.await??;
+            health_handle.await?;
         }
         Commands::Key(cmd) => {
             match cmd {
