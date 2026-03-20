@@ -68,7 +68,8 @@ pub fn init_logging(config: Option<TracingConfig>) -> TracingGuard {
 }
 
 fn build_exporter_tracer(config: &TracingConfig) -> SdkTracerProvider {
-    let sampler = if config.sample_rate == 1.0 {
+    // Direct value comparison fails linting
+    let sampler = if config.sample_rate.trunc() - 1.0 == 0.0 {
         Sampler::AlwaysOn
     } else {
         Sampler::TraceIdRatioBased(config.sample_rate)

@@ -5,44 +5,117 @@ use serde::Deserialize;
 use thiserror::Error;
 use url::Url;
 
-/// The top level configuration for the attestor.
-#[derive(Clone, Debug, Deserialize)]
-pub struct AttestorConfig<A, S> {
+use crate::adapter::{
+    AdapterBuilder, AdapterEnum, AttestationAdapterError,
+    cosmos::{CosmosAdapterBuilder, CosmosAdapterConfig},
+    evm::{EvmAdapterBuilder, EvmAdapterConfig},
+    solana::{SolanaAdapterBuilder, SolanaAdapterConfig},
+};
+use crate::signer::{
+    SignerBuilder, SignerEnum, SignerError,
+    local::{LocalSigner, LocalSignerConfig},
+    remote::{RemoteSigner, RemoteSignerConfig},
+};
+
+/// The type of blockchain adapter to use.
+#[derive(Clone, Debug)]
+pub enum ChainType {
+    /// Ethereum Virtual Machine compatible chains
+    Evm,
+    /// Solana blockchain
+    Solana,
+    /// Cosmos SDK based chains
+    Cosmos,
+}
+
+/// The type of signer to use.
+#[derive(Clone, Debug)]
+pub enum SignerType {
+    /// Local signer using keystore file
+    Local,
+    /// Remote signer using gRPC
+    Remote,
+}
+
+/// Concrete top-level configuration using enum-based dispatch.
+///
+/// The adapter and signer types are determined by CLI arguments, while the
+/// concrete configuration values are read from the TOML file.
+pub struct RuntimeConfig {
     /// The configuration for the attestor server.
     pub server: ServerConfig,
-    /// Signer configuration (generic over signer type) See:
-    /// - [`crate::signer::local::LocalSignerConfig`] for local config options
-    /// - [`crate::signer::remote::RemoteSignerConfig`] for remote config options
-    pub signer: S,
-    /// Adapter specific configuration
-    pub adapter: A,
+    /// The built adapter instance.
+    pub adapter: AdapterEnum,
+    /// The built signer instance.
+    pub signer: SignerEnum,
     /// Optional tracing configuration for OpenTelemetry export.
-    /// If provided, all fields are required and trace export will be enabled.
     pub tracing: Option<TracingConfig>,
 }
 
-impl<A, S> AttestorConfig<A, S>
-where
-    A: for<'de> Deserialize<'de>,
-    S: for<'de> Deserialize<'de>,
-{
-    /// Load an `AttestorConfig` from a TOML file on disk.
-    ///
-    /// Accepts any `P: AsRef<Path>` (e.g. &str, String, Path, `PathBuf`).
+/// Raw TOML structure used for partial deserialization. The `adapter` and
+/// `signer` sections are stored as raw TOML values so they can be
+/// deserialized into the correct concrete type based on CLI arguments.
+#[derive(Deserialize)]
+struct RawConfig {
+    server: ServerConfig,
+    adapter: toml::Value,
+    signer: toml::Value,
+    tracing: Option<TracingConfig>,
+}
+
+impl RuntimeConfig {
+    /// Load a `RuntimeConfig` from a TOML file, using the provided CLI
+    /// arguments to determine which adapter and signer types to deserialize.
     ///
     /// # Errors
-    /// Returns [`ConfigError::Io`] if the file cannot be read, or
-    /// [`ConfigError::Parse`] if the TOML is invalid.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
+    /// Returns [`ConfigError`] if the file cannot be read, the TOML is
+    /// invalid, or the adapter/signer sections don't match the expected type.
+    pub fn from_file<P: AsRef<Path>>(
+        path: P,
+        chain_type: &ChainType,
+        signer_type: &SignerType,
+    ) -> Result<Self, ConfigError> {
         let path_ref = path.as_ref();
         let contents = fs::read_to_string(path_ref)
             .map_err(|e| ConfigError::Io(path_ref.display().to_string(), e))?;
-        let mut cfg: Self = toml::from_str(&contents)?;
-        cfg.tracing = cfg
-            .tracing
-            .map(TracingConfig::validate)
-            .transpose()?;
-        Ok(cfg)
+        let raw: RawConfig = toml::from_str(&contents)?;
+
+        let adapter = match chain_type {
+            ChainType::Evm => {
+                let config: EvmAdapterConfig = raw.adapter.try_into()?;
+                EvmAdapterBuilder::build(config).map(AdapterEnum::Evm)
+            }
+            ChainType::Solana => {
+                let config: SolanaAdapterConfig = raw.adapter.try_into()?;
+                SolanaAdapterBuilder::build(config).map(AdapterEnum::Solana)
+            }
+            ChainType::Cosmos => {
+                let config: CosmosAdapterConfig = raw.adapter.try_into()?;
+                CosmosAdapterBuilder::build(config).map(AdapterEnum::Cosmos)
+            }
+        }
+        .map_err(ConfigError::Adapter)?;
+
+        let signer = match signer_type {
+            SignerType::Local => {
+                let config: LocalSignerConfig = raw.signer.try_into()?;
+                <LocalSigner as SignerBuilder>::build(config).map(SignerEnum::Local)
+            }
+            SignerType::Remote => {
+                let config: RemoteSignerConfig = raw.signer.try_into()?;
+                <RemoteSigner as SignerBuilder>::build(config).map(SignerEnum::Remote)
+            }
+        }
+        .map_err(ConfigError::Signer)?;
+
+        let tracing = raw.tracing.map(TracingConfig::validate).transpose()?;
+
+        Ok(Self {
+            server: raw.server,
+            adapter,
+            signer,
+            tracing,
+        })
     }
 }
 
@@ -69,11 +142,6 @@ pub struct TracingConfig {
     pub sample_rate: f64,
 }
 
-#[derive(Deserialize)]
-struct PartialConfig {
-    tracing: Option<TracingConfig>,
-}
-
 impl TracingConfig {
     fn validate(self) -> Result<Self, ConfigError> {
         if !self.sample_rate.is_finite() || !(0.0..=1.0).contains(&self.sample_rate) {
@@ -84,23 +152,6 @@ impl TracingConfig {
         }
 
         Ok(self)
-    }
-
-    /// Load just the tracing configuration from a TOML file.
-    ///
-    /// This allows initializing the tracer before parsing the full config,
-    /// which may require type parameters for adapter/signer configurations.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError::Io`] if the file cannot be read, or
-    /// [`ConfigError::Toml`] if the file contains invalid TOML.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Option<Self>, ConfigError> {
-        let path_ref = path.as_ref();
-        let contents = fs::read_to_string(path_ref)
-            .map_err(|e| ConfigError::Io(path_ref.display().to_string(), e))?;
-        let partial: PartialConfig = toml::from_str(&contents)?;
-        partial.tracing.map(Self::validate).transpose()
     }
 }
 
@@ -118,4 +169,12 @@ pub enum ConfigError {
     /// Invalid tracing section values
     #[error("invalid tracing config: {0}")]
     InvalidTracingConfig(String),
+
+    /// Adapter build failure
+    #[error(transparent)]
+    Adapter(AttestationAdapterError),
+
+    /// Signer build failure
+    #[error(transparent)]
+    Signer(SignerError),
 }

@@ -1,5 +1,6 @@
 //! Defines the client interface for the attestor server.
 use clap::{Parser, ValueEnum};
+use ibc_attestor::config;
 
 /// The type of blockchain adapter to use
 #[derive(Clone, Debug, ValueEnum)]
@@ -12,6 +13,16 @@ pub enum ChainType {
     Cosmos,
 }
 
+impl From<ChainType> for config::ChainType {
+    fn from(ct: ChainType) -> Self {
+        match ct {
+            ChainType::Evm => Self::Evm,
+            ChainType::Solana => Self::Solana,
+            ChainType::Cosmos => Self::Cosmos,
+        }
+    }
+}
+
 /// The type of signer to use
 #[derive(Clone, Debug, ValueEnum)]
 pub enum SignerType {
@@ -19,6 +30,15 @@ pub enum SignerType {
     Local,
     /// Remote signer using gRPC
     Remote,
+}
+
+impl From<SignerType> for config::SignerType {
+    fn from(st: SignerType) -> Self {
+        match st {
+            SignerType::Local => Self::Local,
+            SignerType::Remote => Self::Remote,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Parser)]

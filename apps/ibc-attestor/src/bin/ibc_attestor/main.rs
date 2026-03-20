@@ -4,20 +4,10 @@ use alloy_signer_local::PrivateKeySigner;
 use clap::Parser;
 use ethereum_keys::signer_local::{read_from_keystore, write_to_keystore};
 use ibc_attestor::{
-    adapter::{
-        AdapterBuilder,
-        cosmos::{CosmosAdapterBuilder, CosmosAdapterConfig},
-        evm::{EvmAdapterBuilder, EvmAdapterConfig},
-        solana::{SolanaAdapterBuilder, SolanaAdapterConfig},
-    },
-    config::{AttestorConfig, TracingConfig},
+    config::RuntimeConfig,
     logging::init_logging,
     rpc::{RpcError, health, server},
-    signer::{
-        SignerBuilder,
-        local::{DEFAULT_KEYSTORE_NAME, LocalSigner, LocalSignerConfig},
-        remote::{RemoteSigner, RemoteSignerConfig},
-    },
+    signer::local::DEFAULT_KEYSTORE_NAME,
 };
 
 use tokio::{
@@ -27,7 +17,7 @@ use tokio::{
 };
 use tracing::info;
 
-use crate::cli::{AttestorCli, ChainType, Commands, SignerType, key::KeyCommands};
+use crate::cli::{AttestorCli, Commands, key::KeyCommands};
 
 mod cli;
 
@@ -43,12 +33,14 @@ fn default_attestor_dir() -> Result<PathBuf, anyhow::Error> {
     Ok(PathBuf::from(home).join(".ibc-attestor"))
 }
 
-fn run_servers<B: AdapterBuilder + 'static, S: SignerBuilder + 'static>(
-    config: AttestorConfig<B::Config, S::Config>,
+type ServerHandles = (JoinHandle<Result<(), RpcError>>, JoinHandle<()>);
+
+fn run_servers(
+    config: RuntimeConfig,
     shutdown_tx: &broadcast::Sender<()>,
-) -> Result<(JoinHandle<Result<(), RpcError>>, JoinHandle<()>), anyhow::Error> {
-    let adapter = B::build(config.adapter)?;
-    let signer = S::build(config.signer)?;
+) -> Result<ServerHandles, anyhow::Error> {
+    let adapter_name = config.adapter.adapter_name();
+    let signer_name = config.signer.signer_name();
     let server_config = config.server;
 
     let grpc_shutdown_rx = shutdown_tx.subscribe();
@@ -60,10 +52,10 @@ fn run_servers<B: AdapterBuilder + 'static, S: SignerBuilder + 'static>(
     let grpc_handle = tokio::spawn(async move {
         server::start(
             grpc_addr,
-            adapter,
-            B::adapter_name(),
-            signer,
-            S::signer_name(),
+            config.adapter,
+            adapter_name,
+            config.signer,
+            signer_name,
             grpc_shutdown_rx,
         )
         .await
@@ -82,55 +74,17 @@ async fn main() -> Result<(), anyhow::Error> {
 
     match cli.command {
         Commands::Server(args) => {
-            // Load tracing config first to initialize logging before parsing full config
-            let tracing_config = TracingConfig::from_file(&args.config)?;
-            let _tracing_guard = init_logging(tracing_config);
+            let config = RuntimeConfig::from_file(
+                &args.config,
+                &args.chain_type.into(),
+                &args.signer_type.into(),
+            )?;
+            let _tracing_guard = init_logging(config.tracing.clone());
 
             // Create shutdown broadcast channel
             let (shutdown_tx, _shutdown_rx) = broadcast::channel(1);
 
-            let (grpc_handle, health_handle) = match (args.chain_type, args.signer_type) {
-                (ChainType::Evm, SignerType::Local) => {
-                    let config = AttestorConfig::<EvmAdapterConfig, LocalSignerConfig>::from_file(
-                        &args.config,
-                    )?;
-                    run_servers::<EvmAdapterBuilder, LocalSigner>(config, &shutdown_tx)?
-                }
-                (ChainType::Evm, SignerType::Remote) => {
-                    let config = AttestorConfig::<EvmAdapterConfig, RemoteSignerConfig>::from_file(
-                        &args.config,
-                    )?;
-                    run_servers::<EvmAdapterBuilder, RemoteSigner>(config, &shutdown_tx)?
-                }
-                (ChainType::Solana, SignerType::Local) => {
-                    let config =
-                        AttestorConfig::<SolanaAdapterConfig, LocalSignerConfig>::from_file(
-                            &args.config,
-                        )?;
-                    run_servers::<SolanaAdapterBuilder, LocalSigner>(config, &shutdown_tx)?
-                }
-                (ChainType::Solana, SignerType::Remote) => {
-                    let config =
-                        AttestorConfig::<SolanaAdapterConfig, RemoteSignerConfig>::from_file(
-                            &args.config,
-                        )?;
-                    run_servers::<SolanaAdapterBuilder, RemoteSigner>(config, &shutdown_tx)?
-                }
-                (ChainType::Cosmos, SignerType::Local) => {
-                    let config =
-                        AttestorConfig::<CosmosAdapterConfig, LocalSignerConfig>::from_file(
-                            &args.config,
-                        )?;
-                    run_servers::<CosmosAdapterBuilder, LocalSigner>(config, &shutdown_tx)?
-                }
-                (ChainType::Cosmos, SignerType::Remote) => {
-                    let config =
-                        AttestorConfig::<CosmosAdapterConfig, RemoteSignerConfig>::from_file(
-                            &args.config,
-                        )?;
-                    run_servers::<CosmosAdapterBuilder, RemoteSigner>(config, &shutdown_tx)?
-                }
-            };
+            let (grpc_handle, health_handle) = run_servers(config, &shutdown_tx)?;
 
             _ = wait_for_shutdown_signal().await;
             info!("shutdown signal received, starting graceful shutdown");
