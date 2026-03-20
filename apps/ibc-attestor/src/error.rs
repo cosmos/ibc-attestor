@@ -67,7 +67,12 @@ impl From<AttestorError> for Status {
             AttestorError::SignerError(_) | AttestorError::SignerInitError(_) => {
                 Self::new(Code::Internal, value.to_string())
             }
-            _ => Self::new(Code::Internal, value.to_string()),
+            AttestorError::MalformedCommitmentError(_) => {
+                Self::new(Code::InvalidArgument, value.to_string())
+            }
+            AttestorError::AbiError(_) | AttestorError::AdapterError(_) => {
+                Self::new(Code::Internal, value.to_string())
+            }
         }
     }
 }
