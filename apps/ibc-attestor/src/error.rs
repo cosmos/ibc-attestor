@@ -46,6 +46,10 @@ pub enum AttestorError {
     /// Failed to retrieve data from adapter
     #[error("AdapterError: {0}")]
     AdapterError(#[from] AttestationAdapterError),
+
+    /// Failed to decode commitment type
+    #[error("MalformedCommitmentError: {0}")]
+    MalformedCommitmentError(#[from] prost::UnknownEnumValue),
 }
 
 impl From<AttestorError> for Status {
@@ -57,13 +61,14 @@ impl From<AttestorError> for Status {
             AttestorError::CommitmentNotFound { .. } => {
                 Self::new(Code::NotFound, value.to_string())
             }
-            AttestorError::InvalidCommitment { .. } => {
+            AttestorError::InvalidCommitment { .. }
+            | AttestorError::MalformedCommitmentError(_) => {
                 Self::new(Code::InvalidArgument, value.to_string())
             }
-            AttestorError::SignerError(_) | AttestorError::SignerInitError(_) => {
-                Self::new(Code::Internal, value.to_string())
-            }
-            _ => Self::new(Code::Internal, value.to_string()),
+            AttestorError::SignerError(_)
+            | AttestorError::SignerInitError(_)
+            | AttestorError::AbiError(_)
+            | AttestorError::AdapterError(_) => Self::new(Code::Internal, value.to_string()),
         }
     }
 }

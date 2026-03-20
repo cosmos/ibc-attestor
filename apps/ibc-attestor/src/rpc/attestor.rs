@@ -112,8 +112,8 @@ where
         let request_inner = request.into_inner();
         let height = request_inner.height;
         let packets = Packets::try_from_abi_encoded(&request_inner.packets)?;
-        let commitment_type = CommitmentType::try_from(request_inner.commitment_type)
-            .unwrap_or(CommitmentType::Packet);
+        let commitment_type =
+            CommitmentType::try_from(request_inner.commitment_type).map_err(AttestorError::from)?;
 
         validate_height(&self.adapter, height).await?;
 
@@ -204,7 +204,7 @@ async fn handle_packet_commitment(
     commitment_type: CommitmentType,
 ) -> Result<IAttestationMsgs::PacketCompact, AttestorError> {
     let commitment_path = packet.commitment_path();
-    let expected_path = packet.commitment();
+    let expected_commitment = packet.commitment();
     let client_id = packet.sourceClient.clone();
     let sequence = packet.sequence;
 
@@ -231,7 +231,7 @@ async fn handle_packet_commitment(
         }
     })?;
 
-    if expected_path == commitment {
+    if expected_commitment == commitment {
         debug!("packet commitment validated successfully");
         Ok(IAttestationMsgs::PacketCompact {
             path: keccak256(commitment_path),
@@ -239,7 +239,7 @@ async fn handle_packet_commitment(
         })
     } else {
         error!(
-            expected = %hex::encode(&expected_path),
+            expected = %hex::encode(&expected_commitment),
             actual = %hex::encode(commitment),
             "packet commitment mismatch"
         );
@@ -248,7 +248,7 @@ async fn handle_packet_commitment(
                 "Packet commitment mismatch for client_id={} seq={}: expected 0x{}, got 0x{}",
                 client_id,
                 sequence,
-                hex::encode(&expected_path),
+                hex::encode(&expected_commitment),
                 hex::encode(commitment)
             ),
         })
@@ -317,30 +317,31 @@ async fn handle_receipt_commitment(
         )
         .await?;
 
-    // If commitment is `None` we set it to empty commitment
-    let commitment = commitment.unwrap_or([0; 32]);
-
     // The expected commitment is empty commitment (for timeout proofs)
-    if commitment == [0; 32] {
-        debug!("receipt commitment validated (zero/non-existent as expected)");
-        Ok(IAttestationMsgs::PacketCompact {
-            path: keccak256(commitment_path),
-            commitment: commitment.into(),
-        })
-    } else {
-        error!(
-            actual = %hex::encode(commitment),
-            "receipt commitment should be zero but found non-zero value"
-        );
-        Err(AttestorError::InvalidCommitment {
-            reason: format!(
-                "Receipt commitment should be zero for client_id={} seq={}: got 0x{}",
-                client_id,
-                sequence,
-                hex::encode(commitment)
-            ),
-        })
-    }
+    // so flag when commitment exists
+    commitment.map_or_else(
+        || {
+            debug!("receipt commitment validated (zero/non-existent as expected)");
+            Ok(IAttestationMsgs::PacketCompact {
+                path: keccak256(commitment_path),
+                commitment: [0; 32].into(),
+            })
+        },
+        |commit| {
+            error!(
+                actual = %hex::encode(commit),
+                "receipt commitment should be zero but found non-zero value"
+            );
+            Err(AttestorError::InvalidCommitment {
+                reason: format!(
+                    "Receipt commitment should be zero for client_id={} seq={}: got 0x{}",
+                    client_id,
+                    sequence,
+                    hex::encode(commit)
+                ),
+            })
+        },
+    )
 }
 
 impl From<SignedAttestation> for Response<StateAttestationResponse> {
