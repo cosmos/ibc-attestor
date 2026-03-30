@@ -80,17 +80,17 @@ impl AdapterBuilder for SolanaAdapterBuilder {
 #[async_trait::async_trait]
 impl AttestationAdapter for SolanaAdapter {
     async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
-        debug!("fetching last finalized slot from Solana chain");
+        debug!("fetching last confirmed slot from Solana chain");
 
-        let current_finalized_slot = with_retry_backoff(
+        let current_confirmed_slot = with_retry_backoff(
             "solana.get_last_height.get_slot_with_commitment",
             || async {
                 self.client
-                    .get_slot_with_commitment(CommitmentConfig::finalized())
+                    .get_slot_with_commitment(CommitmentConfig::confirmed())
                     .await
                     .map_err(|err| {
                         // error log emitted by retry module
-                        debug!(error = %err, "failed to fetch finalized slot from Solana chain");
+                        debug!(error = %err, "failed to fetch confirmed slot from Solana chain");
                         AttestationAdapterError::RetrievalError(err.to_string())
                     })
             },
@@ -98,10 +98,10 @@ impl AttestationAdapter for SolanaAdapter {
         .await?;
 
         debug!(
-            slot = current_finalized_slot,
-            "retrieved last finalized slot"
+            slot = current_confirmed_slot,
+            "retrieved last confirmed slot"
         );
-        Ok(current_finalized_slot)
+        Ok(current_confirmed_slot)
     }
 
     async fn get_block_timestamp(&self, slot: u64) -> Result<u64, AttestationAdapterError> {
@@ -152,7 +152,7 @@ impl AttestationAdapter for SolanaAdapter {
             "solana.get_commitment.get_account_with_commitment",
             || async {
                 self.client
-                    .get_account_with_commitment(&commitment_pda, CommitmentConfig::finalized())
+                    .get_account_with_commitment(&commitment_pda, CommitmentConfig::confirmed())
                     .await
                     .map_err(|e| {
                         // error log emitted by retry module
