@@ -35,7 +35,13 @@ fn make_metrics_filter()
     warp::get()
         .and(warp::path("metrics"))
         .and(warp::path::end())
-        .map(|| warp::reply::with_header(metrics::encode_text(), "content-type", metrics::CONTENT_TYPE))
+        .map(|| {
+            warp::reply::with_header(
+                metrics::encode_text(),
+                "content-type",
+                metrics::CONTENT_TYPE,
+            )
+        })
 }
 
 /// Start the HTTP health server.
