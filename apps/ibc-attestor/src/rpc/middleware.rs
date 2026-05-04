@@ -1,4 +1,3 @@
-use std::time::Instant;
 use tonic::{Request, Response, Status};
 use tracing::info;
 
@@ -53,9 +52,9 @@ where
         &self,
         request: Request<LatestHeightRequest>,
     ) -> Result<Response<LatestHeightResponse>, Status> {
-        let start = Instant::now();
-        let result = metrics::track_rpc("latest_height", self.inner.latest_height(request)).await;
-        let duration_ms = start.elapsed().as_millis();
+        let (result, elapsed) =
+            metrics::track_rpc("latest_height", self.inner.latest_height(request)).await;
+        let duration_ms = elapsed.as_millis();
 
         match &result {
             Ok(response) => {
@@ -82,10 +81,9 @@ where
         &self,
         request: Request<StateAttestationRequest>,
     ) -> Result<Response<StateAttestationResponse>, Status> {
-        let start = Instant::now();
-        let result =
+        let (result, elapsed) =
             metrics::track_rpc("state_attestation", self.inner.state_attestation(request)).await;
-        let duration_ms = start.elapsed().as_millis();
+        let duration_ms = elapsed.as_millis();
 
         match &result {
             Ok(response) => {
@@ -126,10 +124,9 @@ where
         &self,
         request: Request<PacketAttestationRequest>,
     ) -> Result<Response<PacketAttestationResponse>, Status> {
-        let start = Instant::now();
-        let result =
+        let (result, elapsed) =
             metrics::track_rpc("packet_attestation", self.inner.packet_attestation(request)).await;
-        let duration_ms = start.elapsed().as_millis();
+        let duration_ms = elapsed.as_millis();
 
         match &result {
             Ok(_) => {

@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::OnceLock;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use prometheus::{
     Encoder, Histogram, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge, Opts,
@@ -224,7 +224,7 @@ pub fn inc_signer_sign(result: &str) {
 }
 
 /// Encode the gathered metrics in Prometheus text format. Returns an empty
-/// buffer if the registry has not been initialized.
+/// buffer if the registry has not been initialized or if encoding fails.
 #[must_use]
 pub fn encode_text() -> Vec<u8> {
     let Some(m) = metrics() else {
@@ -232,31 +232,34 @@ pub fn encode_text() -> Vec<u8> {
     };
     let mut buf = Vec::new();
     let encoder = TextEncoder::new();
-    let _ = encoder.encode(&m.registry.gather(), &mut buf);
+    if let Err(error) = encoder.encode(&m.registry.gather(), &mut buf) {
+        tracing::error!(error = %error, "failed to encode prometheus metrics");
+        return Vec::new();
+    }
     buf
 }
 
 /// The Prometheus content type for the text exposition format.
 pub const CONTENT_TYPE: &str = "text/plain; version=0.0.4";
 
-/// Record `attestor_rpc_requests_total` and `attestor_rpc_request_duration_seconds`
-/// for the awaited gRPC handler future.
+/// Record per-request gRPC metrics around the awaited handler future.
 ///
-/// # Errors
-/// Forwards the inner future's `Err(tonic::Status)` unchanged.
-pub async fn track_rpc<F, T>(method: &str, fut: F) -> Result<T, tonic::Status>
+/// Records `attestor_rpc_requests_total` and
+/// `attestor_rpc_request_duration_seconds`, and returns the elapsed duration
+/// alongside the result so callers can reuse the same measurement.
+pub async fn track_rpc<F, T>(method: &str, fut: F) -> (Result<T, tonic::Status>, Duration)
 where
     F: Future<Output = Result<T, tonic::Status>>,
 {
     let start = Instant::now();
     let result = fut.await;
-    let elapsed = start.elapsed().as_secs_f64();
+    let elapsed = start.elapsed();
     let code = match &result {
         Ok(_) => tonic::Code::Ok,
         Err(status) => status.code(),
     };
-    record_rpc_request(method, &code_label(code), elapsed);
-    result
+    record_rpc_request(method, &code_label(code), elapsed.as_secs_f64());
+    (result, elapsed)
 }
 
 /// Convert a [`tonic::Code`] into a label value.
