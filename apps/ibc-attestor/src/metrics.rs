@@ -242,9 +242,6 @@ pub const CONTENT_TYPE: &str = "text/plain; version=0.0.4";
 /// Record `attestor_rpc_requests_total` and `attestor_rpc_request_duration_seconds`
 /// for the awaited gRPC handler future.
 ///
-/// The status code is read directly from the handler's `Result`, so no
-/// header/trailer inspection is needed.
-///
 /// # Errors
 /// Forwards the inner future's `Err(tonic::Status)` unchanged.
 pub async fn track_rpc<F, T>(method: &str, fut: F) -> Result<T, tonic::Status>
@@ -262,15 +259,13 @@ where
     result
 }
 
-/// Convert a [`tonic::Code`] into a stable, low-cardinality label value
-/// (`snake_case` derived from the enum variant name).
+/// Convert a [`tonic::Code`] into a label value.
 #[must_use]
 pub fn code_label(code: tonic::Code) -> String {
     pascal_to_snake(&format!("{code:?}"))
 }
 
-/// Convert a `PascalCase` identifier to `snake_case`.
-pub(crate) fn pascal_to_snake(s: &str) -> String {
+fn pascal_to_snake(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 4);
     for (i, b) in s.bytes().enumerate() {
         if b.is_ascii_uppercase() && i != 0 {
