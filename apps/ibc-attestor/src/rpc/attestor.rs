@@ -12,6 +12,7 @@ use crate::{
     adapter::AttestationAdapter,
     attestation::{SignedAttestation, sign_attestation},
     attestation_payload::{AttestationPayload, AttestationType},
+    metrics,
     rpc::api::{
         Attestation, CommitmentType, LatestHeightRequest, LatestHeightResponse,
         PacketAttestationRequest, PacketAttestationResponse, StateAttestationRequest,
@@ -142,7 +143,14 @@ async fn validate_height(
 ) -> Result<(), AttestorError> {
     // Check that the request is for the finalized height
     let finalized = adapter.get_last_height_at_configured_finality().await?;
+
+    let lag = i64::try_from(finalized)
+        .unwrap_or(i64::MAX)
+        .saturating_sub(i64::try_from(height).unwrap_or(i64::MAX));
+    metrics::observe_height_lag(lag);
+
     if height > finalized {
+        metrics::inc_height_rejections();
         error!(
             requestedHeight = height,
             finalizedHeight = finalized,
@@ -223,6 +231,7 @@ async fn handle_packet_commitment(
 
     // Packet commitment is expected to exist
     let commitment = commitment.ok_or_else(|| {
+        metrics::inc_commitment_failure("not_found");
         error!("packet commitment not found on chain");
         AttestorError::CommitmentNotFound {
             client_id: client_id.clone(),
@@ -238,6 +247,7 @@ async fn handle_packet_commitment(
             commitment: commitment.into(),
         })
     } else {
+        metrics::inc_commitment_failure("mismatch");
         error!(
             expected = %hex::encode(&expected_commitment),
             actual = %hex::encode(commitment),
@@ -280,6 +290,7 @@ async fn handle_ack_commitment(
 
     // Ack commitment is expected to exist
     let commitment = commitment.ok_or_else(|| {
+        metrics::inc_commitment_failure("not_found");
         error!(height, "ack commitment not found on chain");
         AttestorError::CommitmentNotFound {
             client_id,
@@ -328,6 +339,7 @@ async fn handle_receipt_commitment(
             })
         },
         |commit| {
+            metrics::inc_commitment_failure("unexpected_receipt");
             error!(
                 actual = %hex::encode(commit),
                 "receipt commitment should be zero but found non-zero value"

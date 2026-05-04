@@ -9,6 +9,7 @@ use super::api::{
 };
 use super::attestor::AttestorService;
 use crate::adapter::AttestationAdapter;
+use crate::metrics;
 use crate::signer::Signer;
 
 /// Logging middleware that wraps the `AttestorService` structured spans and request duration.
@@ -53,7 +54,7 @@ where
         request: Request<LatestHeightRequest>,
     ) -> Result<Response<LatestHeightResponse>, Status> {
         let start = Instant::now();
-        let result = self.inner.latest_height(request).await;
+        let result = metrics::track_rpc("latest_height", self.inner.latest_height(request)).await;
         let duration_ms = start.elapsed().as_millis();
 
         match &result {
@@ -82,7 +83,8 @@ where
         request: Request<StateAttestationRequest>,
     ) -> Result<Response<StateAttestationResponse>, Status> {
         let start = Instant::now();
-        let result = self.inner.state_attestation(request).await;
+        let result =
+            metrics::track_rpc("state_attestation", self.inner.state_attestation(request)).await;
         let duration_ms = start.elapsed().as_millis();
 
         match &result {
@@ -125,7 +127,8 @@ where
         request: Request<PacketAttestationRequest>,
     ) -> Result<Response<PacketAttestationResponse>, Status> {
         let start = Instant::now();
-        let result = self.inner.packet_attestation(request).await;
+        let result =
+            metrics::track_rpc("packet_attestation", self.inner.packet_attestation(request)).await;
         let duration_ms = start.elapsed().as_millis();
 
         match &result {

@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+use crate::metrics;
 use crate::rpc::api::CommitmentType;
 
 use cosmos::CosmosAdapter;
@@ -76,11 +77,15 @@ impl AdapterEnum {
 #[async_trait::async_trait]
 impl AttestationAdapter for AdapterEnum {
     async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
-        match self {
+        let result = match self {
             Self::Evm(a) => a.get_last_height_at_configured_finality().await,
             Self::Solana(a) => a.get_last_height_at_configured_finality().await,
             Self::Cosmos(a) => a.get_last_height_at_configured_finality().await,
+        };
+        if let Ok(height) = &result {
+            metrics::set_adapter_finalized_height(*height);
         }
+        result
     }
 
     async fn get_block_timestamp(&self, height: u64) -> Result<u64, AttestationAdapterError> {

@@ -15,6 +15,8 @@ pub mod attestation_payload;
 pub mod config;
 /// Logging and observability setup
 pub mod logging;
+/// Prometheus metrics registry and recording helpers
+pub mod metrics;
 /// gRPC server and service implementations
 pub mod rpc;
 /// Signer implementations for local and remote signing

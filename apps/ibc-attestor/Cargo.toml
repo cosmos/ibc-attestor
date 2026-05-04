@@ -62,6 +62,7 @@ tower-http = { workspace = true, features = ["trace"] }
 tonic = { workspace = true, default-features = true }
 tonic-reflection = { workspace = true, default-features = true }
 prost = { workspace = true, default-features = true }
+prometheus = { workspace = true, default-features = true }
 warp = { workspace = true, features = ["server"] }
 futures = { workspace = true, default-features = true }
 async-trait = { workspace = true }

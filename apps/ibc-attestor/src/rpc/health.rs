@@ -2,7 +2,9 @@ use std::net::SocketAddr;
 
 use tokio::{net::TcpStream, sync::broadcast};
 use tracing::{error, info};
-use warp::{Filter, http::StatusCode};
+use warp::{Filter, Reply, http::StatusCode};
+
+use crate::metrics;
 
 async fn check_grpc(grpc_addr: SocketAddr) -> StatusCode {
     match TcpStream::connect(grpc_addr).await {
@@ -27,10 +29,20 @@ fn make_healthz_filter(
         .then(check_grpc)
 }
 
+fn make_metrics_filter()
+-> impl Filter<Extract = (warp::reply::WithHeader<Vec<u8>>,), Error = warp::Rejection> + Clone + Send
+{
+    warp::get()
+        .and(warp::path("metrics"))
+        .and(warp::path::end())
+        .map(|| warp::reply::with_header(metrics::encode_text(), "content-type", metrics::CONTENT_TYPE))
+}
+
 /// Start the HTTP health server.
 ///
 /// Exposes a `GET /healthz` endpoint that returns 200 OK when the gRPC server
-/// is accepting connections, or 503 Service Unavailable when it is not ready.
+/// is accepting connections, or 503 Service Unavailable when it is not ready,
+/// and a `GET /metrics` endpoint that returns the current Prometheus metrics.
 pub async fn start(
     health_addr: SocketAddr,
     grpc_addr: SocketAddr,
@@ -42,14 +54,16 @@ pub async fn start(
         "starting HTTP health server"
     );
 
-    let healthz = make_healthz_filter(grpc_addr);
+    let healthz = make_healthz_filter(grpc_addr).map(Reply::into_response);
+    let metrics_route = make_metrics_filter().map(Reply::into_response);
+    let routes = healthz.or(metrics_route);
 
     let shutdown_signal = async move {
         let _ = shutdown_rx.recv().await;
         info!("health server received shutdown signal");
     };
 
-    warp::serve(healthz)
+    warp::serve(routes)
         .bind(health_addr)
         .await
         .graceful(shutdown_signal)
