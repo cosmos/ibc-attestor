@@ -155,7 +155,7 @@ impl AttestationAdapter for EvmAdapter {
 
     #[tracing::instrument(
         skip(self, _client_id, commitment_path),
-        fields(chain = "evm", height, sequence = _sequence, commitmentType = ?_commitment_type)
+        fields(chain = "evm", clientId = %_client_id, height, sequence = _sequence, commitmentType = ?_commitment_type)
     )]
     async fn get_commitment(
         &self,
