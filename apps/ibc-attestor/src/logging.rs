@@ -1,6 +1,7 @@
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::{SpanExporter, WithExportConfig};
 use opentelemetry_sdk::{
+    Resource,
     propagation::TraceContextPropagator,
     trace::{Sampler, SdkTracerProvider},
 };
@@ -31,13 +32,22 @@ const DEFAULT_SERVICE_NAME: &str = "ibc-attestor";
 /// Panics when an invalid [`TracingGuard`] is provided.
 #[must_use]
 pub fn init_logging(config: Option<TracingConfig>) -> TracingGuard {
-    let (provider, service) = match config {
-        Some(cfg) => (build_exporter_tracer(&cfg), cfg.service_name.clone()),
-        None => (
-            SdkTracerProvider::builder().build(),
-            DEFAULT_SERVICE_NAME.to_string(),
-        ),
-    };
+    let service = config.as_ref().map_or_else(
+        || DEFAULT_SERVICE_NAME.to_string(),
+        |c| c.service_name.clone(),
+    );
+    let provider = config.map_or_else(
+        || {
+            SdkTracerProvider::builder()
+                .with_resource(
+                    Resource::builder()
+                        .with_service_name(service.clone())
+                        .build(),
+                )
+                .build()
+        },
+        |cfg| build_exporter_tracer(&cfg, &service),
+    );
     let tracer = provider.tracer(service);
     let env_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
@@ -67,7 +77,7 @@ pub fn init_logging(config: Option<TracingConfig>) -> TracingGuard {
     TracingGuard { provider }
 }
 
-fn build_exporter_tracer(config: &TracingConfig) -> SdkTracerProvider {
+fn build_exporter_tracer(config: &TracingConfig, service_name: &str) -> SdkTracerProvider {
     // Direct value comparison fails linting
     let sampler = if config.sample_rate.trunc() - 1.0 == 0.0 {
         Sampler::AlwaysOn
@@ -83,6 +93,11 @@ fn build_exporter_tracer(config: &TracingConfig) -> SdkTracerProvider {
 
     SdkTracerProvider::builder()
         .with_sampler(sampler)
+        .with_resource(
+            Resource::builder()
+                .with_service_name(service_name.to_string())
+                .build(),
+        )
         .with_batch_exporter(exporter)
         .build()
 }
