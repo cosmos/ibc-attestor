@@ -76,6 +76,7 @@ pub struct EvmAdapter {
 
 #[async_trait::async_trait]
 impl AttestationAdapter for EvmAdapter {
+    #[tracing::instrument(skip(self), fields(chain = "evm"))]
     async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
         debug!("fetching last finalized height from EVM chain");
 
@@ -126,6 +127,7 @@ impl AttestationAdapter for EvmAdapter {
         Ok(finalized_height)
     }
 
+    #[tracing::instrument(skip(self), fields(chain = "evm", height))]
     async fn get_block_timestamp(&self, height: u64) -> Result<u64, AttestationAdapterError> {
         debug!("fetching block timestamp from EVM chain");
 
@@ -151,6 +153,10 @@ impl AttestationAdapter for EvmAdapter {
         Ok(timestamp)
     }
 
+    #[tracing::instrument(
+        skip(self, _client_id, commitment_path),
+        fields(chain = "evm", height, sequence = _sequence, commitmentType = ?_commitment_type)
+    )]
     async fn get_commitment(
         &self,
         _client_id: String,

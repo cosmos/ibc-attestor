@@ -175,6 +175,7 @@ impl CosmosAdapter {
 
 #[async_trait::async_trait]
 impl AttestationAdapter for CosmosAdapter {
+    #[tracing::instrument(skip(self), fields(chain = "cosmos"))]
     async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
         debug!("fetching last finalized height from Cosmos chain");
 
@@ -192,6 +193,7 @@ impl AttestationAdapter for CosmosAdapter {
         Ok(height)
     }
 
+    #[tracing::instrument(skip(self), fields(chain = "cosmos", height))]
     async fn get_block_timestamp(&self, height: u64) -> Result<u64, AttestationAdapterError> {
         debug!("fetching block timestamp from Cosmos chain");
 
@@ -219,6 +221,10 @@ impl AttestationAdapter for CosmosAdapter {
         Ok(timestamp)
     }
 
+    #[tracing::instrument(
+        skip(self, _commitment_path),
+        fields(chain = "cosmos", clientId = %client_id, height, sequence, commitmentType = ?commitment_type)
+    )]
     async fn get_commitment(
         &self,
         client_id: String,

@@ -3,7 +3,7 @@ use std::time::Duration;
 use alloy_primitives::Signature;
 use async_trait::async_trait;
 use tonic::transport::Endpoint;
-use tracing::info;
+use tracing::{Instrument, info, info_span};
 use url::Url;
 
 use super::{Signer, SignerBuilder, SignerError};
@@ -76,9 +76,16 @@ impl SignerBuilder for RemoteSigner {
 
 #[async_trait]
 impl Signer for RemoteSigner {
+    #[tracing::instrument(
+        skip(self, message),
+        fields(signer = "remote", walletId = %self.wallet_id, messageLen = message.len())
+    )]
     async fn sign(&self, message: &[u8]) -> Result<Signature, SignerError> {
         // Create a new client connection for this request
-        let mut client = self.create_client().await?;
+        let mut client = self
+            .create_client()
+            .instrument(info_span!("signer.connect"))
+            .await?;
 
         // Fetch wallet information on each signing request
         let wallet_request = tonic::Request::new(GetWalletRequest {
@@ -88,6 +95,7 @@ impl Signer for RemoteSigner {
 
         let wallet = client
             .get_wallet(wallet_request)
+            .instrument(info_span!("signer.get_wallet"))
             .await
             .map_err(|e| SignerError::RemoteError(e.to_string()))?
             .into_inner()
@@ -107,6 +115,7 @@ impl Signer for RemoteSigner {
 
         let response = client
             .sign(request)
+            .instrument(info_span!("signer.sign_rpc"))
             .await
             .map_err(|e| SignerError::RemoteError(e.to_string()))?;
 

@@ -79,6 +79,7 @@ impl SignerBuilder for LocalSigner {
 
 #[async_trait]
 impl Signer for LocalSigner {
+    #[tracing::instrument(skip(self, message), fields(signer = "local", messageLen = message.len()))]
     async fn sign(&self, message: &[u8]) -> Result<Signature, SignerError> {
         // Call the existing sync signing function
         sync_sign(&self.inner, message).map_err(|e| SignerError::LocalError(e.to_string()))

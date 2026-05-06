@@ -79,6 +79,7 @@ impl AdapterBuilder for SolanaAdapterBuilder {
 
 #[async_trait::async_trait]
 impl AttestationAdapter for SolanaAdapter {
+    #[tracing::instrument(skip(self), fields(chain = "solana"))]
     async fn get_last_height_at_configured_finality(&self) -> Result<u64, AttestationAdapterError> {
         debug!("fetching last finalized slot from Solana chain");
 
@@ -104,6 +105,7 @@ impl AttestationAdapter for SolanaAdapter {
         Ok(current_finalized_slot)
     }
 
+    #[tracing::instrument(skip(self), fields(chain = "solana", slot))]
     async fn get_block_timestamp(&self, slot: u64) -> Result<u64, AttestationAdapterError> {
         debug!("fetching block timestamp from Solana chain");
 
@@ -126,6 +128,10 @@ impl AttestationAdapter for SolanaAdapter {
         Ok(timestamp)
     }
 
+    #[tracing::instrument(
+        skip(self, _commitment_path),
+        fields(chain = "solana", clientId = %client_id, slot, sequence, commitmentType = ?commitment_type)
+    )]
     async fn get_commitment(
         &self,
         client_id: String,
