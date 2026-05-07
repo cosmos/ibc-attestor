@@ -45,9 +45,8 @@ where
     )
     .await;
 
-    let final_attempts = attempts.load(Ordering::Relaxed);
-
     if let Err(error) = &result {
+        let final_attempts = attempts.load(Ordering::Relaxed);
         if final_attempts >= MAX_ATTEMPTS {
             metrics::inc_retry_failure(operation);
         }
