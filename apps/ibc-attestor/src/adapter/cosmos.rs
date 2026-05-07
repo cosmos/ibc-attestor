@@ -160,12 +160,9 @@ impl CosmosAdapter {
             })
             .await?;
 
-        // Packet was received
         if response.received {
-            error!("packet was already received, cannot timeout");
-            Err(AttestationAdapterError::CommitmentError(format!(
-                "Packet seq={sequence} was already received, cannot timeout",
-            )))
+            debug!("receipt commitment exists (packet was received)");
+            Ok(Some(vec![0xFF; 32]))
         } else {
             debug!("receipt commitment not found (packet not received)");
             Ok(None)
