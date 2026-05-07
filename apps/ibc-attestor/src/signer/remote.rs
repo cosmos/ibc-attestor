@@ -81,6 +81,10 @@ impl Signer for RemoteSigner {
         fields(signer = "remote", walletId = %self.wallet_id, messageLen = message.len())
     )]
     async fn sign(&self, message: &[u8]) -> Result<Signature, SignerError> {
+        const R_LEN: usize = 32;
+        const S_LEN: usize = 32;
+        const V_LEN: usize = 1;
+
         // Create a new client connection for this request
         let mut client = self
             .create_client()
@@ -124,28 +128,30 @@ impl Signer for RemoteSigner {
             .signature
             .ok_or_else(|| SignerError::RemoteError("no signature in response".to_string()))?;
 
-        // Extract raw signature bytes
-        let signature_bytes: Vec<_> = match signature {
-            crate::proto::signer::sign_response::Signature::RecoverableSignature(recoverable) => {
-                [recoverable.r, recoverable.s, recoverable.v]
-                    .into_iter()
-                    .flatten()
-                    .collect()
-            }
-            _ => {
-                return Err(SignerError::InvalidSignature(
-                    "expected resoverable signature".to_string(),
-                ));
-            }
+        let crate::proto::signer::sign_response::Signature::RecoverableSignature(recoverable) =
+            signature
+        else {
+            return Err(SignerError::InvalidSignature(
+                "expected recoverable signature".to_string(),
+            ));
         };
 
-        // Convert to 65-byte Signature
-        if signature_bytes.len() != 65 {
+        if recoverable.r.len() != R_LEN
+            || recoverable.s.len() != S_LEN
+            || recoverable.v.len() != V_LEN
+        {
             return Err(SignerError::InvalidSignature(format!(
-                "expected 65 bytes, got {}",
-                signature_bytes.len()
+                "expected r={R_LEN} s={S_LEN} v={V_LEN} bytes, got r={} s={} v={}",
+                recoverable.r.len(),
+                recoverable.s.len(),
+                recoverable.v.len()
             )));
         }
+
+        let mut signature_bytes = [0u8; R_LEN + S_LEN + V_LEN];
+        signature_bytes[..R_LEN].copy_from_slice(&recoverable.r);
+        signature_bytes[R_LEN..R_LEN + S_LEN].copy_from_slice(&recoverable.s);
+        signature_bytes[R_LEN + S_LEN..].copy_from_slice(&recoverable.v);
 
         Signature::try_from(signature_bytes.as_slice())
             .map_err(|e| SignerError::InvalidSignature(e.to_string()))
