@@ -41,6 +41,7 @@ fn run_servers(
 ) -> Result<ServerHandles, anyhow::Error> {
     let adapter_name = config.adapter.adapter_name();
     let signer_name = config.signer.signer_name();
+    ibc_attestor::metrics::init(adapter_name, signer_name);
     let server_config = config.server;
 
     let grpc_shutdown_rx = shutdown_tx.subscribe();

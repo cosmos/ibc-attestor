@@ -7,6 +7,7 @@ use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tracing::{debug, error};
 
 use super::AttestationAdapterError;
+use crate::metrics;
 
 const MAX_ATTEMPTS: u8 = 3;
 const INITIAL_BACKOFF: u64 = 200;
@@ -45,9 +46,13 @@ where
     .await;
 
     if let Err(error) = &result {
+        let final_attempts = attempts.load(Ordering::Relaxed);
+        if final_attempts >= MAX_ATTEMPTS {
+            metrics::inc_retry_failure(operation);
+        }
         error!(
             operation,
-            attempts = attempts.load(Ordering::Relaxed),
+            attempts = final_attempts,
             maxAttempts = MAX_ATTEMPTS,
             error = %error,
             "request failed"

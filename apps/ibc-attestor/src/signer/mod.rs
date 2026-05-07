@@ -1,6 +1,7 @@
 use alloy_primitives::Signature;
 use async_trait::async_trait;
 
+use crate::metrics;
 use local::LocalSigner;
 use remote::RemoteSigner;
 
@@ -69,10 +70,12 @@ impl SignerEnum {
 #[async_trait]
 impl Signer for SignerEnum {
     async fn sign(&self, message: &[u8]) -> Result<Signature, SignerError> {
-        match self {
+        let result = match self {
             Self::Local(s) => s.sign(message).await,
             Self::Remote(s) => s.sign(message).await,
-        }
+        };
+        metrics::inc_signer_sign(if result.is_ok() { "ok" } else { "err" });
+        result
     }
 }
 
