@@ -1,4 +1,8 @@
 use ibc_eureka_utils::rpc::TendermintRpcExt;
+use ibc_proto_eureka::ibc::core::channel::v2::{
+    QueryPacketReceiptRequest, QueryPacketReceiptResponse,
+};
+use prost::Message;
 use serde::Deserialize;
 use tendermint::block::Height;
 use tendermint_rpc::{Client, HttpClient, Url};
@@ -145,17 +149,57 @@ impl CosmosAdapter {
             with_retry_backoff("cosmos.get_receipt_commitment.v2_packet_receipt", || {
                 let client_id = client_id.clone();
                 async move {
-                    self.client
-                        .v2_packet_receipt(client_id, sequence, height)
+                    let height = Height::try_from(height).map_err(|_| {
+                        error!("invalid height for Cosmos chain");
+                        AttestationAdapterError::InvalidHeight
+                    })?;
+
+                    let request = QueryPacketReceiptRequest {
+                        client_id,
+                        sequence,
+                    };
+
+                    let abci_response = self
+                        .client
+                        .abci_query(
+                            Some("/ibc.core.channel.v2.Query/PacketReceipt".to_string()),
+                            request.encode_to_vec(),
+                            Some(height),
+                            false,
+                        )
                         .await
                         .map_err(|err| {
-                            // error log emitted by retry module
                             debug!(
                                 error = %err,
                                 "failed to fetch receipt commitment from Cosmos chain"
                             );
                             AttestationAdapterError::RetrievalError(err.to_string())
-                        })
+                        })?;
+
+                    if abci_response.code.is_err() {
+                        error!(
+                            code = abci_response.code.value(),
+                            log = %abci_response.log,
+                            "ABCI app rejected receipt query; refusing to treat as non-membership"
+                        );
+                        return Err(AttestationAdapterError::RetrievalError(format!(
+                            "ABCI receipt query returned non-zero code {}: {}",
+                            abci_response.code.value(),
+                            abci_response.log
+                        )));
+                    }
+
+                    QueryPacketReceiptResponse::decode(abci_response.value.as_slice()).map_err(
+                        |err| {
+                            debug!(
+                                error = %err,
+                                "failed to decode QueryPacketReceiptResponse"
+                            );
+                            AttestationAdapterError::RetrievalError(format!(
+                                "Failed to decode QueryPacketReceiptResponse: {err}"
+                            ))
+                        },
+                    )
                 }
             })
             .await?;

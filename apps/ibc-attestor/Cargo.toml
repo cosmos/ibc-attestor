@@ -84,6 +84,7 @@ ibc-eureka-solidity-types = { workspace = true, default-features = true, feature
     "rpc",
 ] }
 ibc-eureka-utils = { workspace = true, default-features = true }
+ibc-proto-eureka = { workspace = true, default-features = false }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }

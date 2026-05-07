@@ -1924,6 +1924,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmos-sdk-proto"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95ac39be7373404accccaede7cc1ec942ccef14f0ca18d209967a756bf1dbb1f"
+dependencies = [
+ "prost",
+ "tendermint-proto",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3376,6 +3386,7 @@ dependencies = [
  "hex",
  "ibc-eureka-solidity-types",
  "ibc-eureka-utils",
+ "ibc-proto 0.52.0",
  "indexmap 2.12.1",
  "opentelemetry",
  "opentelemetry-otlp",
@@ -3502,7 +3513,7 @@ dependencies = [
  "alloy-signer-local",
  "anyhow",
  "async-trait",
- "cosmos-sdk-proto",
+ "cosmos-sdk-proto 0.26.1",
  "ibc-client-tendermint-types",
  "ibc-core-client-types",
  "ibc-core-commitment-types",
@@ -3539,7 +3550,7 @@ checksum = "9b70f517162e74e2d35875b8b94bf4d1e45f2c69ef3de452dc855944455d33ca"
 dependencies = [
  "base64 0.22.1",
  "bytes",
- "cosmos-sdk-proto",
+ "cosmos-sdk-proto 0.26.1",
  "flex-error",
  "ics23",
  "informalsystems-pbjson",
@@ -3556,7 +3567,22 @@ source = "git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca4
 dependencies = [
  "base64 0.22.1",
  "bytes",
- "cosmos-sdk-proto",
+ "cosmos-sdk-proto 0.26.1",
+ "flex-error",
+ "ics23",
+ "prost",
+ "subtle-encoding",
+ "tendermint-proto",
+]
+
+[[package]]
+name = "ibc-proto"
+version = "0.52.0"
+source = "git+https://github.com/srdtrk/ibc-proto-rs?rev=3613891e18478811216cce02dc867b7c6ff8811b#3613891e18478811216cce02dc867b7c6ff8811b"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "cosmos-sdk-proto 0.27.0",
  "flex-error",
  "ics23",
  "prost",
