@@ -29,7 +29,6 @@ pub struct RemoteSignerConfig {
     ///
     /// When set, the file is read once at startup and attached as
     /// `Authorization: Bearer <token>` on every gRPC call to the signer.
-    /// Rotating the token requires restarting the attestor.
     #[serde(default)]
     pub service_account_token_path: Option<PathBuf>,
 }
