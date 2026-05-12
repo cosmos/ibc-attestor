@@ -1,8 +1,13 @@
+use std::fs;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use alloy_primitives::Signature;
 use async_trait::async_trait;
-use tonic::transport::Endpoint;
+use tonic::Status;
+use tonic::metadata::MetadataValue;
+use tonic::service::{Interceptor, interceptor::InterceptedService};
+use tonic::transport::{Channel, Endpoint};
 use tracing::{Instrument, info, info_span};
 use url::Url;
 
@@ -19,6 +24,16 @@ pub struct RemoteSignerConfig {
     pub endpoint: Url,
     /// Wallet ID to use for signing
     pub wallet_id: String,
+    /// Path to a Kubernetes `ServiceAccount` token file.
+    ///
+    /// When set, the file's contents are attached as `Authorization: Bearer <token>`
+    /// on every gRPC call to the signer. The file is re-read on each new connection
+    /// so kubelet-driven token rotations are picked up without restarting.
+    ///
+    /// Omit when running against a signer that does not enforce caller authentication
+    /// (e.g., the singleton signer used in platform integration tests).
+    #[serde(default)]
+    pub service_account_token_path: Option<PathBuf>,
 }
 
 /// Remote signer implementation using gRPC client
@@ -29,27 +44,35 @@ pub struct RemoteSignerConfig {
 pub struct RemoteSigner {
     endpoint: Url,
     wallet_id: String,
+    service_account_token_path: Option<PathBuf>,
 }
 
 impl RemoteSigner {
     /// Create a new remote signer (does not connect until first use)
-    pub fn new(endpoint: Url, wallet_id: String) -> Self {
+    pub fn new(
+        endpoint: Url,
+        wallet_id: String,
+        service_account_token_path: Option<PathBuf>,
+    ) -> Self {
         info!(
             endpoint = %endpoint,
             walletId = %wallet_id,
+            authEnabled = service_account_token_path.is_some(),
             "remote signer configured (connection deferred until first use)"
         );
 
         Self {
             endpoint,
             wallet_id,
+            service_account_token_path,
         }
     }
 
     /// Create a new gRPC client connection
     async fn create_client(
         &self,
-    ) -> Result<SignerServiceClient<tonic::transport::Channel>, SignerError> {
+    ) -> Result<SignerServiceClient<InterceptedService<Channel, AuthInterceptor>>, SignerError>
+    {
         let channel = Endpoint::from_shared(self.endpoint.to_string())
             .map_err(|e| SignerError::ConnectionError(e.to_string()))?
             .timeout(Duration::from_secs(30))
@@ -57,7 +80,8 @@ impl RemoteSigner {
             .await
             .map_err(|e| SignerError::ConnectionError(e.to_string()))?;
 
-        Ok(SignerServiceClient::new(channel))
+        let interceptor = AuthInterceptor::new(self.service_account_token_path.clone());
+        Ok(SignerServiceClient::with_interceptor(channel, interceptor))
     }
 }
 
@@ -70,7 +94,11 @@ impl SignerBuilder for RemoteSigner {
     }
 
     fn build(config: Self::Config) -> Result<Self::Signer, SignerError> {
-        Ok(Self::new(config.endpoint, config.wallet_id))
+        Ok(Self::new(
+            config.endpoint,
+            config.wallet_id,
+            config.service_account_token_path,
+        ))
     }
 }
 
@@ -149,5 +177,49 @@ impl Signer for RemoteSigner {
 
         Signature::try_from(signature_bytes.as_slice())
             .map_err(|e| SignerError::InvalidSignature(e.to_string()))
+    }
+}
+
+/// gRPC interceptor that attaches a Kubernetes `ServiceAccount` token as an
+/// `Authorization: Bearer` header on every outgoing request.
+///
+/// The token file is re-read on each request so that rotations driven by the
+/// kubelet (Secret-mounted tokens, projected SA tokens) are picked up without
+/// restarting the attestor.
+///
+/// When `token_path` is `None` the interceptor passes requests through unchanged.
+/// This keeps tests against the unauthenticated singleton signer working without
+/// any branching at the call sites.
+#[derive(Clone)]
+pub struct AuthInterceptor {
+    token_path: Option<PathBuf>,
+}
+
+impl AuthInterceptor {
+    const fn new(token_path: Option<PathBuf>) -> Self {
+        Self { token_path }
+    }
+}
+
+impl Interceptor for AuthInterceptor {
+    fn call(
+        &mut self,
+        mut request: tonic::Request<()>,
+    ) -> Result<tonic::Request<()>, Status> {
+        let Some(path) = &self.token_path else {
+            return Ok(request);
+        };
+        let token = fs::read_to_string(path).map_err(|e| {
+            Status::unauthenticated(format!(
+                "failed to read service account token at {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
+        let header_value: MetadataValue<_> = format!("Bearer {}", token.trim())
+            .parse()
+            .map_err(|e| Status::internal(format!("invalid token bytes: {e}")))?;
+        request.metadata_mut().insert("authorization", header_value);
+        Ok(request)
     }
 }
