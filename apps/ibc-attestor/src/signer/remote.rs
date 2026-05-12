@@ -24,7 +24,9 @@ pub struct RemoteSignerConfig {
     pub endpoint: Url,
     /// Wallet ID to use for signing
     pub wallet_id: String,
-    /// Path to a Kubernetes `ServiceAccount` token file.
+    /// Path to a file containing a bare JWT (no JSON envelope) — the format
+    /// `kubernetes.io/service-account-token`-typed Secrets and projected
+    /// `ServiceAccount` token volumes are populated in.
     ///
     /// When set, the file's contents are attached as `Authorization: Bearer <token>`
     /// on every gRPC call to the signer. The file is re-read on each new connection
