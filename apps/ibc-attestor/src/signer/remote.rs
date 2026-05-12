@@ -182,8 +182,7 @@ impl Signer for RemoteSigner {
 }
 
 /// Read a Kubernetes `ServiceAccount` token from disk and parse it into a
-/// `Bearer` header value. Uses `tokio::fs` so the read does not block a Tokio
-/// worker thread.
+/// `Bearer` header value.
 async fn load_bearer_header(path: &Path) -> Result<MetadataValue<Ascii>, SignerError> {
     let token = tokio::fs::read_to_string(path).await.map_err(|e| {
         SignerError::ConfigError(format!(
