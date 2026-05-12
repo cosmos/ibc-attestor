@@ -56,7 +56,7 @@ url = { workspace = true, features = ["std"] }
 
 clap = { workspace = true, default-features = false, features = ["derive"] }
 
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "fs"] }
 tokio-retry = { workspace = true }
 tower-http = { workspace = true, features = ["trace"] }
 tonic = { workspace = true, default-features = true }

@@ -1,11 +1,10 @@
-use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use alloy_primitives::Signature;
 use async_trait::async_trait;
 use tonic::Status;
-use tonic::metadata::MetadataValue;
+use tonic::metadata::{Ascii, MetadataValue};
 use tonic::service::{Interceptor, interceptor::InterceptedService};
 use tonic::transport::{Channel, Endpoint};
 use tracing::{Instrument, info, info_span};
@@ -27,9 +26,9 @@ pub struct RemoteSignerConfig {
     /// Path to a file containing a bare JWT (no JSON envelope) — the format
     /// `kubernetes.io/service-account-token`-typed Secrets are populated in.
     ///
-    /// When set, the file is read on each gRPC call and attached as
-    /// `Authorization: Bearer <token>`. Reading per-call lets kubelet-driven
-    /// token rotations take effect without restarting.
+    /// When set, the file is read asynchronously on each gRPC connection and
+    /// attached as `Authorization: Bearer <token>`. Reading per-connection lets
+    /// kubelet-driven token rotations take effect without restarting.
     #[serde(default)]
     pub service_account_token_path: Option<PathBuf>,
 }
@@ -78,9 +77,11 @@ impl RemoteSigner {
             .await
             .map_err(|e| SignerError::ConnectionError(e.to_string()))?;
 
-        let interceptor = AuthInterceptor {
-            token_path: self.service_account_token_path.clone(),
+        let bearer_header = match &self.service_account_token_path {
+            Some(path) => Some(load_bearer_header(path).await?),
+            None => None,
         };
+        let interceptor = AuthInterceptor { bearer_header };
         Ok(SignerServiceClient::with_interceptor(channel, interceptor))
     }
 }
@@ -180,32 +181,45 @@ impl Signer for RemoteSigner {
     }
 }
 
-/// gRPC interceptor that reads a Kubernetes `ServiceAccount` token from a file
-/// on each request and attaches it as `Authorization: Bearer <token>`. Reading
-/// per-request lets kubelet-driven token rotations take effect without
-/// restarting.
+/// Read a Kubernetes `ServiceAccount` token from disk and parse it into a
+/// `Bearer` header value. Uses `tokio::fs` so the read does not block a Tokio
+/// worker thread.
+async fn load_bearer_header(path: &Path) -> Result<MetadataValue<Ascii>, SignerError> {
+    let token = tokio::fs::read_to_string(path).await.map_err(|e| {
+        SignerError::ConfigError(format!(
+            "read service account token at {}: {e}",
+            path.display()
+        ))
+    })?;
+    let trimmed = token.trim();
+    if trimmed.is_empty() {
+        return Err(SignerError::ConfigError(format!(
+            "service account token file at {} is empty",
+            path.display()
+        )));
+    }
+    format!("Bearer {trimmed}")
+        .parse()
+        .map_err(|e| SignerError::ConfigError(format!("invalid token bytes: {e}")))
+}
+
+/// gRPC interceptor that attaches a pre-resolved `Authorization: Bearer` header
+/// on every outgoing request. The header is loaded once per gRPC connection in
+/// [`RemoteSigner::create_client`] using `tokio::fs`.
 ///
-/// When `token_path` is `None` requests pass through unchanged.
+/// When `bearer_header` is `None` requests pass through unchanged.
 #[derive(Clone)]
 pub(crate) struct AuthInterceptor {
-    token_path: Option<PathBuf>,
+    bearer_header: Option<MetadataValue<Ascii>>,
 }
 
 impl Interceptor for AuthInterceptor {
     fn call(&mut self, mut request: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
-        let Some(path) = &self.token_path else {
-            return Ok(request);
-        };
-        let token = fs::read_to_string(path).map_err(|e| {
-            Status::unauthenticated(format!(
-                "failed to read service account token at {}: {e}",
-                path.display()
-            ))
-        })?;
-        let header_value: MetadataValue<_> = format!("Bearer {}", token.trim())
-            .parse()
-            .map_err(|e| Status::internal(format!("invalid token bytes: {e}")))?;
-        request.metadata_mut().insert("authorization", header_value);
+        if let Some(header) = &self.bearer_header {
+            request
+                .metadata_mut()
+                .insert("authorization", header.clone());
+        }
         Ok(request)
     }
 }
