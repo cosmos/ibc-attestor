@@ -1,8 +1,12 @@
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use alloy_primitives::Signature;
 use async_trait::async_trait;
-use tonic::transport::Endpoint;
+use tonic::Status;
+use tonic::metadata::{Ascii, MetadataValue};
+use tonic::service::{Interceptor, interceptor::InterceptedService};
+use tonic::transport::{Channel, Endpoint};
 use tracing::{Instrument, info, info_span};
 use url::Url;
 
@@ -19,6 +23,13 @@ pub struct RemoteSignerConfig {
     pub endpoint: Url,
     /// Wallet ID to use for signing
     pub wallet_id: String,
+    /// Path to a file containing a bare JWT (no JSON envelope) — the format
+    /// `kubernetes.io/service-account-token`-typed Secrets are populated in.
+    ///
+    /// When set, the file is read asynchronously on each gRPC connection and
+    /// attached as `Authorization: Bearer <token>`.
+    #[serde(default)]
+    pub service_account_token_path: Option<PathBuf>,
 }
 
 /// Remote signer implementation using gRPC client
@@ -29,27 +40,35 @@ pub struct RemoteSignerConfig {
 pub struct RemoteSigner {
     endpoint: Url,
     wallet_id: String,
+    service_account_token_path: Option<PathBuf>,
 }
 
 impl RemoteSigner {
     /// Create a new remote signer (does not connect until first use)
-    pub fn new(endpoint: Url, wallet_id: String) -> Self {
+    pub fn new(
+        endpoint: Url,
+        wallet_id: String,
+        service_account_token_path: Option<PathBuf>,
+    ) -> Self {
         info!(
             endpoint = %endpoint,
             walletId = %wallet_id,
+            authEnabled = service_account_token_path.is_some(),
             "remote signer configured (connection deferred until first use)"
         );
 
         Self {
             endpoint,
             wallet_id,
+            service_account_token_path,
         }
     }
 
     /// Create a new gRPC client connection
     async fn create_client(
         &self,
-    ) -> Result<SignerServiceClient<tonic::transport::Channel>, SignerError> {
+    ) -> Result<SignerServiceClient<InterceptedService<Channel, AuthInterceptor>>, SignerError>
+    {
         let channel = Endpoint::from_shared(self.endpoint.to_string())
             .map_err(|e| SignerError::ConnectionError(e.to_string()))?
             .timeout(Duration::from_secs(30))
@@ -57,7 +76,12 @@ impl RemoteSigner {
             .await
             .map_err(|e| SignerError::ConnectionError(e.to_string()))?;
 
-        Ok(SignerServiceClient::new(channel))
+        let bearer_header = match &self.service_account_token_path {
+            Some(path) => Some(load_bearer_header(path).await?),
+            None => None,
+        };
+        let interceptor = AuthInterceptor { bearer_header };
+        Ok(SignerServiceClient::with_interceptor(channel, interceptor))
     }
 }
 
@@ -70,7 +94,11 @@ impl SignerBuilder for RemoteSigner {
     }
 
     fn build(config: Self::Config) -> Result<Self::Signer, SignerError> {
-        Ok(Self::new(config.endpoint, config.wallet_id))
+        Ok(Self::new(
+            config.endpoint,
+            config.wallet_id,
+            config.service_account_token_path,
+        ))
     }
 }
 
@@ -149,5 +177,47 @@ impl Signer for RemoteSigner {
 
         Signature::try_from(signature_bytes.as_slice())
             .map_err(|e| SignerError::InvalidSignature(e.to_string()))
+    }
+}
+
+/// Read a Kubernetes `ServiceAccount` token from disk and parse it into a
+/// `Bearer` header value.
+async fn load_bearer_header(path: &Path) -> Result<MetadataValue<Ascii>, SignerError> {
+    let token = tokio::fs::read_to_string(path).await.map_err(|e| {
+        SignerError::ConfigError(format!(
+            "read service account token at {}: {e}",
+            path.display()
+        ))
+    })?;
+    let trimmed = token.trim();
+    if trimmed.is_empty() {
+        return Err(SignerError::ConfigError(format!(
+            "service account token file at {} is empty",
+            path.display()
+        )));
+    }
+    format!("Bearer {trimmed}")
+        .parse()
+        .map_err(|e| SignerError::ConfigError(format!("invalid token bytes: {e}")))
+}
+
+/// gRPC interceptor that attaches a pre-resolved `Authorization: Bearer` header
+/// on every outgoing request. The header is loaded once per gRPC connection in
+/// [`RemoteSigner::create_client`] using `tokio::fs`.
+///
+/// When `bearer_header` is `None` requests pass through unchanged.
+#[derive(Clone)]
+pub(crate) struct AuthInterceptor {
+    bearer_header: Option<MetadataValue<Ascii>>,
+}
+
+impl Interceptor for AuthInterceptor {
+    fn call(&mut self, mut request: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
+        if let Some(header) = &self.bearer_header {
+            request
+                .metadata_mut()
+                .insert("authorization", header.clone());
+        }
+        Ok(request)
     }
 }
