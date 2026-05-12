@@ -27,8 +27,7 @@ pub struct RemoteSignerConfig {
     /// `kubernetes.io/service-account-token`-typed Secrets are populated in.
     ///
     /// When set, the file is read asynchronously on each gRPC connection and
-    /// attached as `Authorization: Bearer <token>`. Reading per-connection lets
-    /// kubelet-driven token rotations take effect without restarting.
+    /// attached as `Authorization: Bearer <token>`.
     #[serde(default)]
     pub service_account_token_path: Option<PathBuf>,
 }
