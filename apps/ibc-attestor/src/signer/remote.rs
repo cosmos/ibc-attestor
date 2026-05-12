@@ -187,8 +187,6 @@ impl Signer for RemoteSigner {
 /// restarting the attestor.
 ///
 /// When `token_path` is `None` the interceptor passes requests through unchanged.
-/// This keeps tests against the unauthenticated singleton signer working without
-/// any branching at the call sites.
 #[derive(Clone)]
 pub struct AuthInterceptor {
     token_path: Option<PathBuf>,
