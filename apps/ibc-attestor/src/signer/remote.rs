@@ -210,12 +210,11 @@ pub struct AuthInterceptor {
 }
 
 impl Interceptor for AuthInterceptor {
-    fn call(
-        &mut self,
-        mut request: tonic::Request<()>,
-    ) -> Result<tonic::Request<()>, Status> {
+    fn call(&mut self, mut request: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
         if let Some(header) = &self.bearer_header {
-            request.metadata_mut().insert("authorization", header.clone());
+            request
+                .metadata_mut()
+                .insert("authorization", header.clone());
         }
         Ok(request)
     }
