@@ -29,9 +29,6 @@ pub struct RemoteSignerConfig {
     /// When set, the file's contents are attached as `Authorization: Bearer <token>`
     /// on every gRPC call to the signer. The file is re-read on each new connection
     /// so kubelet-driven token rotations are picked up without restarting.
-    ///
-    /// Omit when running against a signer that does not enforce caller authentication
-    /// (e.g., the singleton signer used in platform integration tests).
     #[serde(default)]
     pub service_account_token_path: Option<PathBuf>,
 }
