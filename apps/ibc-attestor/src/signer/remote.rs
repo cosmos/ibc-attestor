@@ -40,6 +40,10 @@ pub struct RemoteSigner {
 
 impl RemoteSigner {
     /// Create a new remote signer (does not connect until first use)
+    ///
+    /// # Errors
+    /// Returns [`SignerError::ConnectionError`] if `endpoint` is not a valid
+    /// gRPC URI accepted by `tonic::transport::Endpoint`.
     pub fn new(
         endpoint: Url,
         wallet_id: String,
@@ -52,7 +56,7 @@ impl RemoteSigner {
             "remote signer configured (connection deferred until first use)"
         );
 
-        let channel = Endpoint::from_shared(endpoint.to_string())
+        let channel = Endpoint::from_shared(String::from(endpoint))
             .map_err(|e| SignerError::ConnectionError(e.to_string()))?
             .timeout(Duration::from_secs(30))
             .connect_lazy();
