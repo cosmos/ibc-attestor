@@ -13,8 +13,8 @@ repository = "https://github.com/cosmos/ibc-attestor"
 keywords   = ["cosmos", "ibc", "attestor", "tendermint", "ethereum", "bridge", "attestation"]
 
 [workspace.dependencies]
-ibc-eureka-solidity-types   = { package = "ibc-eureka-solidity-types", git  = "https://github.com/cosmos/solidity-ibc-eureka.git", rev = "3483ce1", default-features = false }
-ibc-eureka-utils            = { package = "ibc-eureka-utils", git  = "https://github.com/cosmos/solidity-ibc-eureka.git", rev = "3483ce1", default-features = false }
+ibc-eureka-solidity-types   = { package = "ibc-eureka-solidity-types", git  = "https://github.com/cosmos/solidity-ibc-eureka.git", rev = "daa539a0", default-features = false }
+ibc-eureka-utils            = { package = "ibc-eureka-utils", git  = "https://github.com/cosmos/solidity-ibc-eureka.git", rev = "daa539a0", default-features = false }
 ethereum-keys               = { path = "libs/ethereum/keys", default-features = false }
 
 
@@ -93,19 +93,19 @@ ibc-core-commitment-types   = { version = "0.57", default-features = false }
 
 ibc-primitives              = { version = "0.57", default-features = false }
 
-alloy                  = { version = "1.1", default-features = false }
-alloy-contract         = { version = "1.1", default-features = false }
-alloy-sol-types        = { version = "1.1", default-features = false }
-alloy-primitives       = { version = "1.1", default-features = false }
-alloy-serde            = { version = "1.1", default-features = false }
-alloy-network          = { version = "1.1", default-features = false }
-alloy-signer-local     = { version = "1.1", default-features = false }
-alloy-signer           = { version = "1.1", default-features = false }
+alloy                  = { version = "2.0", default-features = false }
+alloy-contract         = { version = "2.0", default-features = false }
+alloy-sol-types        = { version = "1.5", default-features = false }
+alloy-primitives       = { version = "1.5", default-features = false }
+alloy-serde            = { version = "2.0", default-features = false }
+alloy-network          = { version = "2.0", default-features = false }
+alloy-signer-local     = { version = "2.0", default-features = false }
+alloy-signer           = { version = "2.0", default-features = false }
 alloy-rlp              = { version = "0.3", default-features = false }
-alloy-rpc-client       = { version = "1.1", default-features = false }
-alloy-provider         = { version = "1.1", default-features = false }
-alloy-transport        = { version = "1.1", default-features = false }
-alloy-rpc-types-eth    = { version = "1.1", default-features = false }
+alloy-rpc-client       = { version = "2.0", default-features = false }
+alloy-provider         = { version = "2.0", default-features = false }
+alloy-transport        = { version = "2.0", default-features = false }
+alloy-rpc-types-eth    = { version = "2.0", default-features = false }
 
 sp1-sdk    = { version = "5.0", default-features = false }
 sp1-prover = { version = "5.0", default-features = false }
