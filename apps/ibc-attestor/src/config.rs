@@ -70,7 +70,7 @@ impl RuntimeConfig {
     /// # Errors
     /// Returns [`ConfigError`] if the file cannot be read, the TOML is
     /// invalid, or the adapter/signer sections don't match the expected type.
-    pub fn from_file<P: AsRef<Path>>(
+    pub async fn from_file<P: AsRef<Path>>(
         path: P,
         chain_type: &ChainType,
         signer_type: &SignerType,
@@ -99,11 +99,15 @@ impl RuntimeConfig {
         let signer = match signer_type {
             SignerType::Local => {
                 let config: LocalSignerConfig = raw.signer.try_into()?;
-                <LocalSigner as SignerBuilder>::build(config).map(SignerEnum::Local)
+                <LocalSigner as SignerBuilder>::build(config)
+                    .await
+                    .map(SignerEnum::Local)
             }
             SignerType::Remote => {
                 let config: RemoteSignerConfig = raw.signer.try_into()?;
-                <RemoteSigner as SignerBuilder>::build(config).map(SignerEnum::Remote)
+                <RemoteSigner as SignerBuilder>::build(config)
+                    .await
+                    .map(SignerEnum::Remote)
             }
         }
         .map_err(ConfigError::Signer)?;
