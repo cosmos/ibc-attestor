@@ -79,7 +79,8 @@ async fn main() -> Result<(), anyhow::Error> {
                 &args.config,
                 &args.chain_type.into(),
                 &args.signer_type.into(),
-            )?;
+            )
+            .await?;
             let _tracing_guard = init_logging(config.tracing.clone());
 
             // Create shutdown broadcast channel

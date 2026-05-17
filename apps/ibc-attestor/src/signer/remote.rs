@@ -44,7 +44,7 @@ impl RemoteSigner {
     /// # Errors
     /// Returns [`SignerError::ConnectionError`] if `endpoint` is not a valid
     /// gRPC URI accepted by `tonic::transport::Endpoint`.
-    pub fn new(
+    pub async fn new(
         endpoint: Url,
         wallet_id: String,
         service_account_token_path: Option<PathBuf>,
@@ -53,13 +53,15 @@ impl RemoteSigner {
             endpoint = %endpoint,
             walletId = %wallet_id,
             authEnabled = service_account_token_path.is_some(),
-            "remote signer configured (connection deferred until first use)"
+            "connecting remote signer"
         );
 
         let channel = Endpoint::from_shared(String::from(endpoint))
             .map_err(|e| SignerError::ConnectionError(e.to_string()))?
             .timeout(Duration::from_secs(30))
-            .connect_lazy();
+            .connect()
+            .await
+            .map_err(|e| SignerError::ConnectionError(e.to_string()))?;
 
         Ok(Self {
             wallet_id,
@@ -69,6 +71,7 @@ impl RemoteSigner {
     }
 }
 
+#[async_trait]
 impl SignerBuilder for RemoteSigner {
     type Config = RemoteSignerConfig;
     type Signer = Self;
@@ -77,12 +80,13 @@ impl SignerBuilder for RemoteSigner {
         "remote"
     }
 
-    fn build(config: Self::Config) -> Result<Self::Signer, SignerError> {
+    async fn build(config: Self::Config) -> Result<Self::Signer, SignerError> {
         Self::new(
             config.endpoint,
             config.wallet_id,
             config.service_account_token_path,
         )
+        .await
     }
 }
 
