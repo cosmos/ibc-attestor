@@ -3726,7 +3726,7 @@ source = "git+https://github.com/cosmos/solidity-ibc-eureka.git?branch=feat%2Fso
 [[package]]
 name = "ibc-eureka-solidity-types"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka.git?rev=daa539a0#daa539a0e6d70cdf8835bfeef363dac3e4e58ed6"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka.git?rev=daa539a0e6d70cdf8835bfeef363dac3e4e58ed6#daa539a0e6d70cdf8835bfeef363dac3e4e58ed6"
 dependencies = [
  "alloy-contract",
  "alloy-primitives",
@@ -3747,7 +3747,7 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-utils"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka.git?rev=daa539a0#daa539a0e6d70cdf8835bfeef363dac3e4e58ed6"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka.git?rev=daa539a0e6d70cdf8835bfeef363dac3e4e58ed6#daa539a0e6d70cdf8835bfeef363dac3e4e58ed6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8567,7 +8567,7 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client-update-client"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka.git?rev=daa539a0#daa539a0e6d70cdf8835bfeef363dac3e4e58ed6"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka.git?rev=daa539a0e6d70cdf8835bfeef363dac3e4e58ed6#daa539a0e6d70cdf8835bfeef363dac3e4e58ed6"
 dependencies = [
  "ibc-client-tendermint",
  "ibc-core-client",

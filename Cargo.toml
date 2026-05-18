@@ -13,8 +13,8 @@ repository = "https://github.com/cosmos/ibc-attestor"
 keywords   = ["cosmos", "ibc", "attestor", "tendermint", "ethereum", "bridge", "attestation"]
 
 [workspace.dependencies]
-ibc-eureka-solidity-types   = { package = "ibc-eureka-solidity-types", git  = "https://github.com/cosmos/solidity-ibc-eureka.git", rev = "daa539a0", default-features = false }
-ibc-eureka-utils            = { package = "ibc-eureka-utils", git  = "https://github.com/cosmos/solidity-ibc-eureka.git", rev = "daa539a0", default-features = false }
+ibc-eureka-solidity-types   = { package = "ibc-eureka-solidity-types", git  = "https://github.com/cosmos/solidity-ibc-eureka.git", rev = "daa539a0e6d70cdf8835bfeef363dac3e4e58ed6", default-features = false }
+ibc-eureka-utils            = { package = "ibc-eureka-utils", git  = "https://github.com/cosmos/solidity-ibc-eureka.git", rev = "daa539a0e6d70cdf8835bfeef363dac3e4e58ed6", default-features = false }
 ethereum-keys               = { path = "libs/ethereum/keys", default-features = false }
 
 
