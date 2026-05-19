@@ -209,12 +209,6 @@ mod tests {
     use alloy_provider::{Provider, RootProvider};
     use url::Url;
 
-    // Regression test for an alloy TLS-feature-unification bug: with `default-features = false`
-    // and only the `reqwest` feature on alloy, alloy-transport-http pulls in reqwest WITHOUT any
-    // TLS backend, so every HTTPS RPC fails with "error sending request" at the TLS handshake
-    // stage. This test exercises the same `RootProvider::new_http` path the EVM adapter uses
-    // (see `EvmAdapter::build`) and will fail without `reqwest-rustls-tls` (or another TLS
-    // feature) enabled on the alloy dependency.
     #[tokio::test]
     async fn https_provider_can_fetch_chain_id() {
         let url = Url::parse("https://ethereum-rpc.publicnode.com").expect("parse url");
