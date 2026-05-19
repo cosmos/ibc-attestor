@@ -203,17 +203,3 @@ impl AttestationAdapter for EvmAdapter {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use alloy_provider::{Provider, RootProvider};
-    use url::Url;
-
-    #[tokio::test]
-    async fn https_provider_can_fetch_chain_id() {
-        let url = Url::parse("https://ethereum-rpc.publicnode.com").expect("parse url");
-        let provider: RootProvider = RootProvider::new_http(url);
-
-        assert_eq!(provider.get_chain_id().await.expect("fetch chain id"), 1);
-    }
-}
