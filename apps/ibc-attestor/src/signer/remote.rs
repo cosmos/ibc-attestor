@@ -1,15 +1,16 @@
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use alloy_primitives::Signature;
 use async_trait::async_trait;
-use tonic::transport::Endpoint;
+use tonic::metadata::{Ascii, MetadataValue};
+use tonic::transport::{Channel, Endpoint};
 use tracing::{Instrument, info, info_span};
 use url::Url;
 
 use super::{Signer, SignerBuilder, SignerError};
 use crate::proto::signer::{
-    GetWalletRequest, PubKeyType, RecoverableMessage, SignRequest,
-    signer_service_client::SignerServiceClient,
+    RecoverableMessage, SignRequest, signer_service_client::SignerServiceClient,
 };
 
 /// Configuration for building a remote signer
@@ -19,48 +20,58 @@ pub struct RemoteSignerConfig {
     pub endpoint: Url,
     /// Wallet ID to use for signing
     pub wallet_id: String,
+    /// Path to a file containing a bare JWT (no JSON envelope) — the format
+    /// `kubernetes.io/service-account-token`-typed Secrets are populated in.
+    ///
+    /// When set, the file is read asynchronously on each signing request and
+    /// attached as `Authorization: Bearer <token>`.
+    #[serde(default)]
+    pub service_account_token_path: Option<PathBuf>,
 }
 
 /// Remote signer implementation using gRPC client
 ///
-/// This signer connects to a remote signing service via gRPC to perform
-/// cryptographic signing operations. The connection is created on-demand
-/// for each signing request.
+/// The gRPC channel is created once and shared across signing requests.
 pub struct RemoteSigner {
-    endpoint: Url,
     wallet_id: String,
+    client: SignerServiceClient<Channel>,
+    service_account_token_path: Option<PathBuf>,
 }
 
 impl RemoteSigner {
     /// Create a new remote signer (does not connect until first use)
-    pub fn new(endpoint: Url, wallet_id: String) -> Self {
+    ///
+    /// # Errors
+    /// Returns [`SignerError::ConnectionError`] if `endpoint` is not a valid
+    /// gRPC URI accepted by `tonic::transport::Endpoint`.
+    pub async fn new(
+        endpoint: Url,
+        wallet_id: String,
+        service_account_token_path: Option<PathBuf>,
+    ) -> Result<Self, SignerError> {
         info!(
             endpoint = %endpoint,
             walletId = %wallet_id,
-            "remote signer configured (connection deferred until first use)"
+            authEnabled = service_account_token_path.is_some(),
+            "connecting remote signer"
         );
 
-        Self {
-            endpoint,
-            wallet_id,
-        }
-    }
-
-    /// Create a new gRPC client connection
-    async fn create_client(
-        &self,
-    ) -> Result<SignerServiceClient<tonic::transport::Channel>, SignerError> {
-        let channel = Endpoint::from_shared(self.endpoint.to_string())
+        let channel = Endpoint::from_shared(String::from(endpoint))
             .map_err(|e| SignerError::ConnectionError(e.to_string()))?
             .timeout(Duration::from_secs(30))
             .connect()
             .await
             .map_err(|e| SignerError::ConnectionError(e.to_string()))?;
 
-        Ok(SignerServiceClient::new(channel))
+        Ok(Self {
+            wallet_id,
+            client: SignerServiceClient::new(channel),
+            service_account_token_path,
+        })
     }
 }
 
+#[async_trait]
 impl SignerBuilder for RemoteSigner {
     type Config = RemoteSignerConfig;
     type Signer = Self;
@@ -69,8 +80,13 @@ impl SignerBuilder for RemoteSigner {
         "remote"
     }
 
-    fn build(config: Self::Config) -> Result<Self::Signer, SignerError> {
-        Ok(Self::new(config.endpoint, config.wallet_id))
+    async fn build(config: Self::Config) -> Result<Self::Signer, SignerError> {
+        Self::new(
+            config.endpoint,
+            config.wallet_id,
+            config.service_account_token_path,
+        )
+        .await
     }
 }
 
@@ -85,29 +101,8 @@ impl Signer for RemoteSigner {
         const S_LEN: usize = 32;
         const V_LEN: usize = 1;
 
-        // Create a new client connection for this request
-        let mut client = self
-            .create_client()
-            .instrument(info_span!("signer.connect"))
-            .await?;
-
-        // Fetch wallet information on each signing request
-        let wallet_request = tonic::Request::new(GetWalletRequest {
-            id: self.wallet_id.clone(),
-            pubkey_type: PubKeyType::Ethereum as i32,
-        });
-
-        let wallet = client
-            .get_wallet(wallet_request)
-            .instrument(info_span!("signer.get_wallet"))
-            .await
-            .map_err(|e| SignerError::RemoteError(e.to_string()))?
-            .into_inner()
-            .wallet
-            .ok_or_else(|| SignerError::RemoteError("wallet not found".to_string()))?;
-
-        let request = tonic::Request::new(SignRequest {
-            wallet_id: wallet.id,
+        let mut request = tonic::Request::new(SignRequest {
+            wallet_id: self.wallet_id.clone(),
             payload: Some(
                 crate::proto::signer::sign_request::Payload::RecoverableMessage(
                     RecoverableMessage {
@@ -117,7 +112,14 @@ impl Signer for RemoteSigner {
             ),
         });
 
-        let response = client
+        if let Some(path) = &self.service_account_token_path {
+            let bearer = load_bearer_header(path).await?;
+            request.metadata_mut().insert("authorization", bearer);
+        }
+
+        let response = self
+            .client
+            .clone()
             .sign(request)
             .instrument(info_span!("signer.sign_rpc"))
             .await
@@ -156,4 +158,25 @@ impl Signer for RemoteSigner {
         Signature::try_from(signature_bytes.as_slice())
             .map_err(|e| SignerError::InvalidSignature(e.to_string()))
     }
+}
+
+/// Read a Kubernetes `ServiceAccount` token from disk and parse it into a
+/// `Bearer` header value.
+async fn load_bearer_header(path: &Path) -> Result<MetadataValue<Ascii>, SignerError> {
+    let token = tokio::fs::read_to_string(path).await.map_err(|e| {
+        SignerError::ConfigError(format!(
+            "read service account token at {}: {e}",
+            path.display()
+        ))
+    })?;
+    let trimmed = token.trim();
+    if trimmed.is_empty() {
+        return Err(SignerError::ConfigError(format!(
+            "service account token file at {} is empty",
+            path.display()
+        )));
+    }
+    format!("Bearer {trimmed}")
+        .parse()
+        .map_err(|e| SignerError::ConfigError(format!("invalid token bytes: {e}")))
 }
