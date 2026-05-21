@@ -129,7 +129,7 @@ Before pointing a production attestor at a remote signer, confirm end-to-end tha
 
    The response carries `r`, `s`, `v` as separate base64-encoded byte fields under `recoverable_signature`.
 
-3. **Recover the signer address** from the response. The signer is expected to have computed `sha256(probe)` and signed that digest, so reconstruct the same digest and `ecrecover` over `(r, s, v)`. The cleanest path is Python's [`eth_keys`](https://pypi.org/project/eth-keys/) (`pip install eth-keys`) — it accepts `v` as either `0`/`1` or `27`/`28`:
+3. **Recover the signer address** from the response. The signer is expected to have computed `sha256(probe)` and signed that digest, so reconstruct the same digest and `ecrecover` over `(r, s, v)`. The cleanest path is Python's [`eth_keys`](https://pypi.org/project/eth-keys/) (`pip install eth-keys`) — note that `eth_keys` only accepts `v` as `0` or `1`; values of `27`/`28` must be normalised first:
 
    ```bash
    PROBE_HASH=$(printf '%s' "$PROBE_HEX" | xxd -r -p | shasum -a 256 | awk '{print $1}')
@@ -139,14 +139,15 @@ Before pointing a production attestor at a remote signer, confirm end-to-end tha
    import sys, json, base64
    from eth_keys import keys
    rs = json.load(sys.stdin)["recoverableSignature"]
+   v_raw = base64.b64decode(rs["v"])[0]
+   v = v_raw % 27  # normalise: 0->0, 1->1, 27->0, 28->1
    sig = keys.Signature(vrs=(
-       base64.b64decode(rs["v"])[0],
+       v,
        int.from_bytes(base64.b64decode(rs["r"]), "big"),
        int.from_bytes(base64.b64decode(rs["s"]), "big"),
    ))
    print(sig.recover_public_key_from_msg_hash(bytes.fromhex(sys.argv[1])).to_checksum_address())
    ' "$PROBE_HASH"
-   ```
 
 4. **Compare** the recovered address to `EXPECTED_ADDR`. They must match exactly. If they don't, the signer is non-conforming — see the pitfall table below.
 
