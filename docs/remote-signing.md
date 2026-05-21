@@ -148,6 +148,7 @@ Before pointing a production attestor at a remote signer, confirm end-to-end tha
    ))
    print(sig.recover_public_key_from_msg_hash(bytes.fromhex(sys.argv[1])).to_checksum_address())
    ' "$PROBE_HASH"
+   ```
 
 4. **Compare** the recovered address to `EXPECTED_ADDR`. They must match exactly. If they don't, the signer is non-conforming — see the pitfall table below.
 
