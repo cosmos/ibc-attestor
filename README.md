@@ -235,7 +235,7 @@ The CLI must also be extended to support any new chain types.
 
 ## Signing requirements
 
-Currently the IBC attestor supports two signing modes: local and remote. The attestor signing algorithm is a follows:
+Currently the IBC attestor supports two signing modes: local and remote. The attestor signing algorithm is as follows:
 1. Retrieve relevant chain/packet state via the chain adapter
 2. Encode the data using the ABI format to facilitate EVM parsing
 3. Send the encoded message to the signer which first hashes and then signs the data in ECDSA 65-byte recoverable signature (r||s||v)
