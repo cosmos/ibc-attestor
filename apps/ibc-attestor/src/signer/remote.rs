@@ -150,10 +150,15 @@ impl Signer for RemoteSigner {
             )));
         }
 
-        let mut signature_bytes = [0u8; R_LEN + S_LEN + V_LEN];
-        signature_bytes[..R_LEN].copy_from_slice(&recoverable.r);
-        signature_bytes[R_LEN..R_LEN + S_LEN].copy_from_slice(&recoverable.s);
-        signature_bytes[R_LEN + S_LEN..].copy_from_slice(&recoverable.v);
+        let signature_bytes: [u8; R_LEN + S_LEN + V_LEN] =
+            [recoverable.r, recoverable.s, recoverable.v]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<u8>>()
+                .try_into()
+                .map_err(|_| {
+                    SignerError::InvalidSignature("invalid signature byte lengths".to_string())
+                })?;
 
         Signature::try_from(signature_bytes.as_slice())
             .map_err(|e| SignerError::InvalidSignature(e.to_string()))
