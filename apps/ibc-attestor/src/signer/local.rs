@@ -33,6 +33,7 @@ impl LocalSigner {
     }
 }
 
+#[async_trait]
 impl SignerBuilder for LocalSigner {
     type Config = LocalSignerConfig;
     type Signer = Self;
@@ -41,7 +42,7 @@ impl SignerBuilder for LocalSigner {
         "local"
     }
 
-    fn build(config: Self::Config) -> Result<Self::Signer, SignerError> {
+    async fn build(config: Self::Config) -> Result<Self::Signer, SignerError> {
         let keystore_path_with_file = if config.keystore_path.is_dir() {
             config.keystore_path.join(DEFAULT_KEYSTORE_NAME)
         } else {

@@ -8,10 +8,7 @@ use crate::metrics;
 
 async fn check_grpc(grpc_addr: SocketAddr) -> StatusCode {
     match TcpStream::connect(grpc_addr).await {
-        Ok(_) => {
-            info!("health check passed: gRPC server is accepting connections");
-            StatusCode::OK
-        }
+        Ok(_) => StatusCode::OK,
         Err(e) => {
             error!(error = %e, "health check failed: gRPC server not ready");
             StatusCode::SERVICE_UNAVAILABLE

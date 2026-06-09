@@ -203,3 +203,34 @@ impl AttestationAdapter for EvmAdapter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use alloy_provider::{Provider, RootProvider};
+    use url::Url;
+
+    #[tokio::test]
+    async fn https_provider_can_fetch_chain_id() {
+        let url = Url::parse("https://ethereum-rpc.publicnode.com").expect("parse url");
+        let provider: RootProvider = RootProvider::new_http(url);
+
+        let mut last_err = None;
+        for attempt in 1..=3 {
+            match provider.get_chain_id().await {
+                Ok(chain_id) => {
+                    assert_eq!(chain_id, 1);
+                    return;
+                }
+                Err(err) => {
+                    last_err = Some(err);
+                    if attempt < 3 {
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                    }
+                }
+            }
+        }
+        panic!("fetch chain id failed after 3 attempts: {last_err:?}");
+    }
+}

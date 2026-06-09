@@ -6,20 +6,8 @@ package signerservice;
 option go_package = "types/signerservice";
 
 service SignerService {
-    rpc GetChains(GetChainsRequest) returns (GetChainsResponse) {}
     rpc GetWallet(GetWalletRequest) returns (GetWalletResponse) {}
-    rpc GetWallets(GetWalletsRequest) returns (GetWalletsResponse) {}
     rpc Sign(SignRequest) returns (SignResponse) {}
-}
-
-message Chain {
-    string name = 1;
-    string chain_id = 2;
-}
-
-message GetChainsRequest {}
-message GetChainsResponse {
-    repeated Chain chains = 1;
 }
 
 message Wallet {
@@ -45,12 +33,6 @@ enum PubKeyType {
 
 message GetWalletResponse {
     Wallet wallet = 1;
-}
-
-message GetWalletsRequest {}
-
-message GetWalletsResponse {
-    repeated Wallet wallets = 1;
 }
 
 message SignRequest {
