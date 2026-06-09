@@ -17,7 +17,7 @@ use tokio::{
 };
 use tracing::info;
 
-use crate::cli::{AttestorCli, Commands, key::KeyCommands};
+use crate::cli::{AttestorCli, Commands, KeystorePasswordArgs, key::KeyCommands};
 
 mod cli;
 
@@ -38,42 +38,38 @@ type ServerHandles = (JoinHandle<Result<(), RpcError>>, JoinHandle<()>);
 const KEYSTORE_PASSWORD_ENV: &str = "IBC_ATTESTOR_KEYSTORE_PASSWORD";
 
 fn resolve_keystore_password(
-    keystore_password: Option<String>,
-    empty_keystore_password: bool,
+    keystore_password: KeystorePasswordArgs,
     prompt: &str,
     confirm: bool,
     allow_empty_fallback: bool,
 ) -> Result<String, anyhow::Error> {
-    match (keystore_password, empty_keystore_password) {
-        (Some(_), true) => Err(anyhow::anyhow!(
-            "--keystore-password and --empty-keystore-password cannot be used together"
-        )),
-        (Some(password), false) => {
-            if password.is_empty() {
-                return Err(anyhow::anyhow!(
-                    "empty --keystore-password refused; use --empty-keystore-password to make this explicit"
-                ));
-            }
-            Ok(password)
+    if let Some(password) = keystore_password.keystore_password {
+        if password.is_empty() {
+            return Err(anyhow::anyhow!(
+                "empty --keystore-password refused; use --empty-keystore-password to make this explicit"
+            ));
         }
-        (None, true) => Ok(String::new()),
-        (None, false) => {
-            if let Some(password) = env_keystore_password()? {
-                return Ok(password);
-            }
+        return Ok(password);
+    }
 
-            if std::io::stdin().is_terminal() {
-                return prompt_keystore_password(prompt, confirm, allow_empty_fallback);
-            }
+    if keystore_password.empty_keystore_password {
+        return Ok(String::new());
+    }
 
-            if allow_empty_fallback {
-                Ok(String::new())
-            } else {
-                Err(anyhow::anyhow!(
-                    "missing keystore password; use --keystore-password, {KEYSTORE_PASSWORD_ENV}, or --empty-keystore-password"
-                ))
-            }
-        }
+    if let Some(password) = env_keystore_password()? {
+        return Ok(password);
+    }
+
+    if std::io::stdin().is_terminal() {
+        return prompt_keystore_password(prompt, confirm, allow_empty_fallback);
+    }
+
+    if allow_empty_fallback {
+        Ok(String::new())
+    } else {
+        Err(anyhow::anyhow!(
+            "missing keystore password; use --keystore-password, {KEYSTORE_PASSWORD_ENV}, or --empty-keystore-password"
+        ))
     }
 }
 
@@ -161,13 +157,12 @@ async fn main() -> Result<(), anyhow::Error> {
             let local_keystore_password = match &signer_type {
                 RuntimeSignerType::Local => Some(resolve_keystore_password(
                     args.keystore_password,
-                    args.empty_keystore_password,
                     "Keystore password: ",
                     false,
                     true,
                 )?),
                 RuntimeSignerType::Remote => {
-                    if args.keystore_password.is_some() || args.empty_keystore_password {
+                    if args.keystore_password.has_explicit_password_source() {
                         return Err(anyhow::anyhow!(
                             "local keystore password flags cannot be used with --signer-type remote"
                         ));
@@ -218,7 +213,6 @@ async fn main() -> Result<(), anyhow::Error> {
                     let signer = PrivateKeySigner::random();
                     let keystore_password = resolve_keystore_password(
                         args.keystore_password,
-                        args.empty_keystore_password,
                         "New keystore password: ",
                         true,
                         false,
@@ -241,7 +235,6 @@ async fn main() -> Result<(), anyhow::Error> {
                     let keystore_path = attestor_dir.join(DEFAULT_KEYSTORE_NAME);
                     let keystore_password = resolve_keystore_password(
                         args.keystore_password,
-                        args.empty_keystore_password,
                         "Keystore password: ",
                         false,
                         true,
@@ -289,4 +282,25 @@ async fn wait_for_shutdown_signal() {
         _ = signal_terminate.recv() => info!("received SIGTERM signal"),
         _ = signal_interrupt.recv() => info!("received SIGINT signal (Ctrl+C)"),
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::error::ErrorKind;
+
+    #[test]
+    fn password_source_flags_conflict() {
+        let err = AttestorCli::try_parse_from([
+            "ibc_attestor",
+            "key",
+            "show",
+            "--keystore-password",
+            "secret",
+            "--empty-keystore-password",
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
+    }
 }
