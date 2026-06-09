@@ -139,7 +139,6 @@ mod tests {
             AttestationAdapterError::RetrievalError("rpc failed".to_string()),
         ));
         assert_eq!(retrieval_status.code(), Code::Internal);
-
     }
 
     #[test]
