@@ -74,6 +74,7 @@ impl RuntimeConfig {
         path: P,
         chain_type: &ChainType,
         signer_type: &SignerType,
+        local_keystore_password: Option<String>,
     ) -> Result<Self, ConfigError> {
         let path_ref = path.as_ref();
         let contents = fs::read_to_string(path_ref)
@@ -98,7 +99,8 @@ impl RuntimeConfig {
 
         let signer = match signer_type {
             SignerType::Local => {
-                let config: LocalSignerConfig = raw.signer.try_into()?;
+                let mut config: LocalSignerConfig = raw.signer.try_into()?;
+                config.keystore_password = local_keystore_password;
                 <LocalSigner as SignerBuilder>::build(config)
                     .await
                     .map(SignerEnum::Local)

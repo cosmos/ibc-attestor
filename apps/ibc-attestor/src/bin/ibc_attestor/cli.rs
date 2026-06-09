@@ -84,6 +84,14 @@ pub mod server {
         /// The type of signer to use.
         #[clap(long, value_enum, default_value = "local")]
         pub signer_type: SignerType,
+
+        /// Password for the local keystore. Prefer the interactive prompt or IBC_ATTESTOR_KEYSTORE_PASSWORD when possible.
+        #[clap(long)]
+        pub keystore_password: Option<String>,
+
+        /// Use an empty local keystore password. Intended only for existing development keystores.
+        #[clap(long, default_value = "false")]
+        pub empty_keystore_password: bool,
     }
 }
 
@@ -104,6 +112,14 @@ pub mod key {
         /// Custom keystore directory path. If not specified, uses ~/.ibc-attestor/
         #[clap(long)]
         pub keystore: Option<PathBuf>,
+
+        /// Password for the generated keystore. Prefer the interactive prompt or IBC_ATTESTOR_KEYSTORE_PASSWORD when possible.
+        #[clap(long)]
+        pub keystore_password: Option<String>,
+
+        /// Generate a keystore encrypted with an empty password.
+        #[clap(long, default_value = "false")]
+        pub empty_keystore_password: bool,
     }
 
     #[derive(Clone, Debug, Parser)]
@@ -115,5 +131,13 @@ pub mod key {
         /// Custom keystore directory path. If not specified, uses ~/.ibc-attestor/
         #[clap(long)]
         pub keystore: Option<PathBuf>,
+
+        /// Password for the keystore. Prefer the interactive prompt or IBC_ATTESTOR_KEYSTORE_PASSWORD when possible.
+        #[clap(long)]
+        pub keystore_password: Option<String>,
+
+        /// Read a keystore encrypted with an empty password.
+        #[clap(long, default_value = "false")]
+        pub empty_keystore_password: bool,
     }
 }
