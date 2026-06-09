@@ -41,15 +41,27 @@ impl From<SignerType> for config::SignerType {
     }
 }
 
-#[derive(Clone, Debug, Args)]
+#[derive(Clone, Args)]
 pub struct KeystorePasswordArgs {
-    /// Password for the keystore. Prefer the interactive prompt or IBC_ATTESTOR_KEYSTORE_PASSWORD when possible.
-    #[clap(long, conflicts_with = "empty_keystore_password")]
+    /// Password for the keystore. Prefer the interactive prompt or IBC_ATTESTOR_KEYSTORE_PASSWORD; this value is visible in process listings.
+    #[clap(long, conflicts_with = "empty_keystore_password", hide = true)]
     pub keystore_password: Option<String>,
 
     /// Use an empty keystore password.
     #[clap(long, conflicts_with = "keystore_password", default_value = "false")]
     pub empty_keystore_password: bool,
+}
+
+impl std::fmt::Debug for KeystorePasswordArgs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeystorePasswordArgs")
+            .field(
+                "keystore_password",
+                &self.keystore_password.as_ref().map(|_| "***"),
+            )
+            .field("empty_keystore_password", &self.empty_keystore_password)
+            .finish()
+    }
 }
 
 impl KeystorePasswordArgs {

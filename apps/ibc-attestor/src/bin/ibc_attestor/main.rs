@@ -162,9 +162,11 @@ async fn main() -> Result<(), anyhow::Error> {
                     true,
                 )?),
                 RuntimeSignerType::Remote => {
-                    if args.keystore_password.has_explicit_password_source() {
+                    if args.keystore_password.has_explicit_password_source()
+                        || env_keystore_password()?.is_some()
+                    {
                         return Err(anyhow::anyhow!(
-                            "local keystore password flags cannot be used with --signer-type remote"
+                            "local keystore password sources cannot be used with --signer-type remote"
                         ));
                     }
                     None
@@ -302,5 +304,18 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn keystore_password_debug_redacts_password() {
+        let args = KeystorePasswordArgs {
+            keystore_password: Some("super-secret".to_string()),
+            empty_keystore_password: false,
+        };
+
+        let debug = format!("{args:?}");
+
+        assert!(!debug.contains("super-secret"));
+        assert!(debug.contains("***"));
     }
 }

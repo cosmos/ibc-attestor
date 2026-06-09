@@ -152,7 +152,7 @@ service_name   = "ibc-attestor"
 sample_rate    = 1.0
 ```
 
-The `[adapter]` and `[signer]` tables are typed by `--chain-type` and `--signer-type` respectively. Local keystore passwords are prompted interactively or supplied with `--keystore-password` or `IBC_ATTESTOR_KEYSTORE_PASSWORD`; they are not stored in TOML. Unlocking existing keystores falls back to an empty password if no password source is provided. See [`docs/configuration.md`](docs/configuration.md) for the full field reference.
+The `[adapter]` and `[signer]` tables are typed by `--chain-type` and `--signer-type` respectively. Local keystore passwords are prompted interactively or supplied with `IBC_ATTESTOR_KEYSTORE_PASSWORD`; they are not stored in TOML. `--keystore-password` is available for automation but can expose the secret in process listings such as `ps`, so prefer the prompt or environment variable. Unlocking existing keystores falls back to an empty password if no password source is provided. See [`docs/configuration.md`](docs/configuration.md) for the full field reference.
 
 ### Finality offset (EVM only)
 
