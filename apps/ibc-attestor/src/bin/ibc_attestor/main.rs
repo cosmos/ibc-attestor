@@ -1,10 +1,10 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, io::IsTerminal, path::PathBuf};
 
 use alloy_signer_local::PrivateKeySigner;
 use clap::Parser;
 use ethereum_keys::signer_local::{read_from_keystore, write_to_keystore};
 use ibc_attestor::{
-    config::RuntimeConfig,
+    config::{RuntimeConfig, SignerType as RuntimeSignerType},
     logging::init_logging,
     rpc::{RpcError, health, server},
     signer::local::DEFAULT_KEYSTORE_NAME,
@@ -16,8 +16,9 @@ use tokio::{
     task::JoinHandle,
 };
 use tracing::info;
+use zeroize::Zeroizing;
 
-use crate::cli::{AttestorCli, Commands, key::KeyCommands};
+use crate::cli::{AttestorCli, Commands, KeystorePasswordArgs, key::KeyCommands};
 
 mod cli;
 
@@ -34,6 +35,71 @@ fn default_attestor_dir() -> Result<PathBuf, anyhow::Error> {
 }
 
 type ServerHandles = (JoinHandle<Result<(), RpcError>>, JoinHandle<()>);
+
+const KEYSTORE_PASSWORD_ENV: &str = "IBC_ATTESTOR_KEYSTORE_PASSWORD";
+
+fn resolve_keystore_password(
+    keystore_password: KeystorePasswordArgs,
+    prompt: &str,
+    confirm: bool,
+) -> Result<Zeroizing<String>, anyhow::Error> {
+    if let Some(password) = keystore_password.keystore_password {
+        if password.is_empty() {
+            return Err(anyhow::anyhow!(
+                "empty --keystore-password refused; use --empty-keystore-password to make this explicit"
+            ));
+        }
+        return Ok(Zeroizing::new(password));
+    }
+
+    if keystore_password.empty_keystore_password {
+        return Ok(Zeroizing::new(String::new()));
+    }
+
+    if let Some(password) = env_keystore_password()? {
+        return Ok(password);
+    }
+
+    if std::io::stdin().is_terminal() {
+        return prompt_keystore_password(prompt, confirm);
+    }
+
+    Err(anyhow::anyhow!(
+        "missing keystore password; use --keystore-password, {KEYSTORE_PASSWORD_ENV}, or --empty-keystore-password"
+    ))
+}
+
+fn env_keystore_password() -> Result<Option<Zeroizing<String>>, anyhow::Error> {
+    match env::var(KEYSTORE_PASSWORD_ENV) {
+        Ok(password) => Ok(Some(Zeroizing::new(password))),
+        Err(env::VarError::NotPresent) => Ok(None),
+        Err(env::VarError::NotUnicode(_)) => Err(anyhow::anyhow!(
+            "{KEYSTORE_PASSWORD_ENV} must contain valid Unicode"
+        )),
+    }
+}
+
+fn prompt_keystore_password(
+    prompt: &str,
+    confirm: bool,
+) -> Result<Zeroizing<String>, anyhow::Error> {
+    let password = Zeroizing::new(rpassword::prompt_password(prompt)?);
+    if password.is_empty() {
+        return Err(anyhow::anyhow!(
+            "empty prompt password refused; use --empty-keystore-password or set {KEYSTORE_PASSWORD_ENV}= to make this explicit"
+        ));
+    }
+
+    if confirm {
+        let confirmation =
+            Zeroizing::new(rpassword::prompt_password("Confirm keystore password: ")?);
+        if password != confirmation {
+            return Err(anyhow::anyhow!("keystore passwords do not match"));
+        }
+    }
+
+    Ok(password)
+}
 
 fn run_servers(
     config: RuntimeConfig,
@@ -75,10 +141,31 @@ async fn main() -> Result<(), anyhow::Error> {
 
     match cli.command {
         Commands::Server(args) => {
+            let chain_type = args.chain_type.into();
+            let signer_type: RuntimeSignerType = args.signer_type.into();
+            let local_keystore_password = match &signer_type {
+                RuntimeSignerType::Local => Some(resolve_keystore_password(
+                    args.keystore_password,
+                    "Keystore password: ",
+                    false,
+                )?),
+                RuntimeSignerType::Remote => {
+                    if args.keystore_password.has_explicit_password_source()
+                        || env_keystore_password()?.is_some()
+                    {
+                        return Err(anyhow::anyhow!(
+                            "local keystore password sources cannot be used with --signer-type remote"
+                        ));
+                    }
+                    None
+                }
+            };
+
             let config = RuntimeConfig::from_file(
                 &args.config,
-                &args.chain_type.into(),
-                &args.signer_type.into(),
+                &chain_type,
+                &signer_type,
+                local_keystore_password,
             )
             .await?;
             let _tracing_guard = init_logging(config.tracing.clone());
@@ -114,8 +201,18 @@ async fn main() -> Result<(), anyhow::Error> {
                     }
 
                     let signer = PrivateKeySigner::random();
-                    write_to_keystore(&attestor_dir, DEFAULT_KEYSTORE_NAME, signer)
-                        .map_err(|e| anyhow::anyhow!("unable to generate key {e}"))?;
+                    let keystore_password = resolve_keystore_password(
+                        args.keystore_password,
+                        "New keystore password: ",
+                        true,
+                    )?;
+                    write_to_keystore(
+                        &attestor_dir,
+                        DEFAULT_KEYSTORE_NAME,
+                        signer,
+                        &keystore_password,
+                    )
+                    .map_err(|e| anyhow::anyhow!("unable to generate key {e}"))?;
                     println!("key successfully saved to {keystore_path:?}",);
                     Ok::<(), anyhow::Error>(())
                 }
@@ -125,11 +222,16 @@ async fn main() -> Result<(), anyhow::Error> {
                         None => default_attestor_dir()?,
                     };
                     let keystore_path = attestor_dir.join(DEFAULT_KEYSTORE_NAME);
+                    let keystore_password = resolve_keystore_password(
+                        args.keystore_password,
+                        "Keystore password: ",
+                        false,
+                    )?;
 
                     let mut printed_any = false;
 
                     if args.show_private {
-                        let signer = read_from_keystore(keystore_path.clone())?;
+                        let signer = read_from_keystore(keystore_path.clone(), &keystore_password)?;
                         print!("{}", hex::encode(signer.credential().to_bytes()));
                         printed_any = true;
                     }
@@ -140,7 +242,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     }
 
                     if args.show_public {
-                        let signer = read_from_keystore(keystore_path)?;
+                        let signer = read_from_keystore(keystore_path, &keystore_password)?;
                         let addr = signer.address();
                         print!("{}", hex::encode(addr.as_slice()));
                     }
@@ -168,4 +270,38 @@ async fn wait_for_shutdown_signal() {
         _ = signal_terminate.recv() => info!("received SIGTERM signal"),
         _ = signal_interrupt.recv() => info!("received SIGINT signal (Ctrl+C)"),
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::error::ErrorKind;
+
+    #[test]
+    fn password_source_flags_conflict() {
+        let err = AttestorCli::try_parse_from([
+            "ibc_attestor",
+            "key",
+            "show",
+            "--keystore-password",
+            "secret",
+            "--empty-keystore-password",
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn keystore_password_debug_redacts_password() {
+        let args = KeystorePasswordArgs {
+            keystore_password: Some("super-secret".to_string()),
+            empty_keystore_password: false,
+        };
+
+        let debug = format!("{args:?}");
+
+        assert!(!debug.contains("super-secret"));
+        assert!(debug.contains("***"));
+    }
 }

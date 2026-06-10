@@ -93,6 +93,8 @@ The shape of this table is selected at startup by `--signer-type`.
 
 Defined by `LocalSignerConfig` in `apps/ibc-attestor/src/signer/local.rs`. The signing key is generated separately with `ibc_attestor key generate`.
 
+The local keystore password is not stored in TOML. Password source precedence is `--keystore-password <password>`, `--empty-keystore-password`, `IBC_ATTESTOR_KEYSTORE_PASSWORD`, then the interactive prompt. `--keystore-password` can expose the secret in process listings such as `ps`, so prefer the interactive prompt or `IBC_ATTESTOR_KEYSTORE_PASSWORD` when possible. Empty-password keystores require `--empty-keystore-password` or an explicitly empty `IBC_ATTESTOR_KEYSTORE_PASSWORD`. If no password source is available, startup/key loading fails instead of trying an empty password implicitly.
+
 | Field           | Type     | Required | Description |
 |-----------------|----------|----------|-------------|
 | `keystore_path` | `PathBuf` | yes     | Path to the keystore file. A leading `~/` is expanded to `$HOME`. |

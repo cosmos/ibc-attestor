@@ -54,8 +54,10 @@ anyhow = { workspace = true, default-features = true, features = ["backtrace"] }
 thiserror = { workspace = true, default-features = false }
 indexmap = { workspace = true, default-features = false }
 url = { workspace = true, features = ["std"] }
+zeroize = { workspace = true }
 
 clap = { workspace = true, default-features = false, features = ["derive"] }
+rpassword = { workspace = true }
 
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "fs"] }
 tokio-retry = { workspace = true }

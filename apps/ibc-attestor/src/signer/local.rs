@@ -5,6 +5,7 @@ use alloy_signer_local::PrivateKeySigner;
 use async_trait::async_trait;
 use ethereum_keys::{signature::sign as sync_sign, signer_local::read_from_keystore};
 use tracing::info;
+use zeroize::Zeroizing;
 
 use super::{Signer, SignerBuilder, SignerError};
 
@@ -12,10 +13,14 @@ use super::{Signer, SignerBuilder, SignerError};
 pub const DEFAULT_KEYSTORE_NAME: &str = "ibc-attestor-keystore";
 
 /// Configuration for building a local signer
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct LocalSignerConfig {
     /// Path to keystore file or directory
     pub keystore_path: PathBuf,
+    /// Keystore password supplied by the CLI. This is intentionally not read
+    /// from TOML so secrets are not stored in config files.
+    #[serde(skip)]
+    pub keystore_password: Option<Zeroizing<String>>,
 }
 
 /// Local signer implementation using `PrivateKeySigner`
@@ -64,10 +69,17 @@ impl SignerBuilder for LocalSigner {
             keystore_path_with_file.to_string_lossy().to_string()
         };
 
+        let keystore_password = config.keystore_password.ok_or_else(|| {
+            SignerError::ConfigError("missing local keystore password".to_string())
+        })?;
+
         info!(keystorePath = %with_expanded_home, "initalizing local signer");
 
-        let private_key_signer = read_from_keystore(PathBuf::from(with_expanded_home.clone()))
-            .map_err(|e| SignerError::ConfigError(e.to_string()))?;
+        let private_key_signer = read_from_keystore(
+            PathBuf::from(with_expanded_home.clone()),
+            &keystore_password,
+        )
+        .map_err(|e| SignerError::ConfigError(e.to_string()))?;
 
         info!(
             keystorePath = %with_expanded_home,
