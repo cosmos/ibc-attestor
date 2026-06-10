@@ -44,7 +44,7 @@ impl From<SignerType> for config::SignerType {
 #[derive(Clone, Args)]
 pub struct KeystorePasswordArgs {
     /// Password for the keystore. Prefer the interactive prompt or IBC_ATTESTOR_KEYSTORE_PASSWORD; this value is visible in process listings.
-    #[clap(long, conflicts_with = "empty_keystore_password", hide = true)]
+    #[clap(long, conflicts_with = "empty_keystore_password")]
     pub keystore_password: Option<String>,
 
     /// Use an empty keystore password.
