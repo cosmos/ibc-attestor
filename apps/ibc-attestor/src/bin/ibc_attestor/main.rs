@@ -16,6 +16,7 @@ use tokio::{
     task::JoinHandle,
 };
 use tracing::info;
+use zeroize::Zeroizing;
 
 use crate::cli::{AttestorCli, Commands, KeystorePasswordArgs, key::KeyCommands};
 
@@ -42,18 +43,18 @@ fn resolve_keystore_password(
     prompt: &str,
     confirm: bool,
     allow_empty_fallback: bool,
-) -> Result<String, anyhow::Error> {
+) -> Result<Zeroizing<String>, anyhow::Error> {
     if let Some(password) = keystore_password.keystore_password {
         if password.is_empty() {
             return Err(anyhow::anyhow!(
                 "empty --keystore-password refused; use --empty-keystore-password to make this explicit"
             ));
         }
-        return Ok(password);
+        return Ok(Zeroizing::new(password));
     }
 
     if keystore_password.empty_keystore_password {
-        return Ok(String::new());
+        return Ok(Zeroizing::new(String::new()));
     }
 
     if let Some(password) = env_keystore_password()? {
@@ -65,7 +66,7 @@ fn resolve_keystore_password(
     }
 
     if allow_empty_fallback {
-        Ok(String::new())
+        Ok(Zeroizing::new(String::new()))
     } else {
         Err(anyhow::anyhow!(
             "missing keystore password; use --keystore-password, {KEYSTORE_PASSWORD_ENV}, or --empty-keystore-password"
@@ -73,12 +74,12 @@ fn resolve_keystore_password(
     }
 }
 
-fn env_keystore_password() -> Result<Option<String>, anyhow::Error> {
+fn env_keystore_password() -> Result<Option<Zeroizing<String>>, anyhow::Error> {
     match env::var(KEYSTORE_PASSWORD_ENV) {
         Ok(password) if password.is_empty() => Err(anyhow::anyhow!(
             "empty {KEYSTORE_PASSWORD_ENV} refused; use --empty-keystore-password to make this explicit"
         )),
-        Ok(password) => Ok(Some(password)),
+        Ok(password) => Ok(Some(Zeroizing::new(password))),
         Err(env::VarError::NotPresent) => Ok(None),
         Err(env::VarError::NotUnicode(_)) => Err(anyhow::anyhow!(
             "{KEYSTORE_PASSWORD_ENV} must contain valid Unicode"
@@ -90,11 +91,11 @@ fn prompt_keystore_password(
     prompt: &str,
     confirm: bool,
     allow_empty_fallback: bool,
-) -> Result<String, anyhow::Error> {
-    let password = rpassword::prompt_password(prompt)?;
+) -> Result<Zeroizing<String>, anyhow::Error> {
+    let password = Zeroizing::new(rpassword::prompt_password(prompt)?);
     if password.is_empty() {
         if allow_empty_fallback {
-            return Ok(String::new());
+            return Ok(Zeroizing::new(String::new()));
         }
 
         return Err(anyhow::anyhow!(
@@ -103,7 +104,8 @@ fn prompt_keystore_password(
     }
 
     if confirm {
-        let confirmation = rpassword::prompt_password("Confirm keystore password: ")?;
+        let confirmation =
+            Zeroizing::new(rpassword::prompt_password("Confirm keystore password: ")?);
         if password != confirmation {
             return Err(anyhow::anyhow!("keystore passwords do not match"));
         }

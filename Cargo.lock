@@ -3547,6 +3547,7 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "warp",
+ "zeroize",
 ]
 
 [[package]]

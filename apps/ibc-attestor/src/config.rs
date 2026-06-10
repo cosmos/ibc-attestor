@@ -4,6 +4,7 @@ use std::{fs, net::SocketAddr, path::Path};
 use serde::Deserialize;
 use thiserror::Error;
 use url::Url;
+use zeroize::Zeroizing;
 
 use crate::adapter::{
     AdapterBuilder, AdapterEnum, AttestationAdapterError,
@@ -74,7 +75,7 @@ impl RuntimeConfig {
         path: P,
         chain_type: &ChainType,
         signer_type: &SignerType,
-        local_keystore_password: Option<String>,
+        local_keystore_password: Option<Zeroizing<String>>,
     ) -> Result<Self, ConfigError> {
         let path_ref = path.as_ref();
         let contents = fs::read_to_string(path_ref)

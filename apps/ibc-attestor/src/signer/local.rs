@@ -5,6 +5,7 @@ use alloy_signer_local::PrivateKeySigner;
 use async_trait::async_trait;
 use ethereum_keys::{signature::sign as sync_sign, signer_local::read_from_keystore};
 use tracing::info;
+use zeroize::Zeroizing;
 
 use super::{Signer, SignerBuilder, SignerError};
 
@@ -19,7 +20,7 @@ pub struct LocalSignerConfig {
     /// Keystore password supplied by the CLI. This is intentionally not read
     /// from TOML so secrets are not stored in config files.
     #[serde(skip)]
-    pub keystore_password: Option<String>,
+    pub keystore_password: Option<Zeroizing<String>>,
 }
 
 /// Local signer implementation using `PrivateKeySigner`

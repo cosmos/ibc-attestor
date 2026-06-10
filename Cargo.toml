@@ -67,6 +67,7 @@ time               = { version = "0.3", default-features = false }
 dotenv             = { version = "0.15", default-features = false }
 thiserror          = { version = "2.0", default-features = false }
 url                = { version = "2.5.7", default-features = false }
+zeroize            = { version = "1.8", default-features = false, features = ["alloc"] }
 reqwest            = { version = "0.12", default-features = false }
 reqwest_0_11       = { package = "reqwest", version = "0.11", default-features = false }
 indexmap           = { version = "2.10.0", default-features = false }
