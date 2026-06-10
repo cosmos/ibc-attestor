@@ -42,7 +42,6 @@ fn resolve_keystore_password(
     keystore_password: KeystorePasswordArgs,
     prompt: &str,
     confirm: bool,
-    allow_empty_fallback: bool,
 ) -> Result<Zeroizing<String>, anyhow::Error> {
     if let Some(password) = keystore_password.keystore_password {
         if password.is_empty() {
@@ -62,23 +61,16 @@ fn resolve_keystore_password(
     }
 
     if std::io::stdin().is_terminal() {
-        return prompt_keystore_password(prompt, confirm, allow_empty_fallback);
+        return prompt_keystore_password(prompt, confirm);
     }
 
-    if allow_empty_fallback {
-        Ok(Zeroizing::new(String::new()))
-    } else {
-        Err(anyhow::anyhow!(
-            "missing keystore password; use --keystore-password, {KEYSTORE_PASSWORD_ENV}, or --empty-keystore-password"
-        ))
-    }
+    Err(anyhow::anyhow!(
+        "missing keystore password; use --keystore-password, {KEYSTORE_PASSWORD_ENV}, or --empty-keystore-password"
+    ))
 }
 
 fn env_keystore_password() -> Result<Option<Zeroizing<String>>, anyhow::Error> {
     match env::var(KEYSTORE_PASSWORD_ENV) {
-        Ok(password) if password.is_empty() => Err(anyhow::anyhow!(
-            "empty {KEYSTORE_PASSWORD_ENV} refused; use --empty-keystore-password to make this explicit"
-        )),
         Ok(password) => Ok(Some(Zeroizing::new(password))),
         Err(env::VarError::NotPresent) => Ok(None),
         Err(env::VarError::NotUnicode(_)) => Err(anyhow::anyhow!(
@@ -90,16 +82,11 @@ fn env_keystore_password() -> Result<Option<Zeroizing<String>>, anyhow::Error> {
 fn prompt_keystore_password(
     prompt: &str,
     confirm: bool,
-    allow_empty_fallback: bool,
 ) -> Result<Zeroizing<String>, anyhow::Error> {
     let password = Zeroizing::new(rpassword::prompt_password(prompt)?);
     if password.is_empty() {
-        if allow_empty_fallback {
-            return Ok(Zeroizing::new(String::new()));
-        }
-
         return Err(anyhow::anyhow!(
-            "empty keystore password refused; use --empty-keystore-password to make this explicit"
+            "empty prompt password refused; use --empty-keystore-password or set {KEYSTORE_PASSWORD_ENV}= to make this explicit"
         ));
     }
 
@@ -161,7 +148,6 @@ async fn main() -> Result<(), anyhow::Error> {
                     args.keystore_password,
                     "Keystore password: ",
                     false,
-                    true,
                 )?),
                 RuntimeSignerType::Remote => {
                     if args.keystore_password.has_explicit_password_source()
@@ -219,7 +205,6 @@ async fn main() -> Result<(), anyhow::Error> {
                         args.keystore_password,
                         "New keystore password: ",
                         true,
-                        false,
                     )?;
                     write_to_keystore(
                         &attestor_dir,
@@ -241,7 +226,6 @@ async fn main() -> Result<(), anyhow::Error> {
                         args.keystore_password,
                         "Keystore password: ",
                         false,
-                        true,
                     )?;
 
                     let mut printed_any = false;
