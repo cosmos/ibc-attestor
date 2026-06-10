@@ -70,10 +70,7 @@ impl SignerBuilder for LocalSigner {
         };
 
         let keystore_password = config.keystore_password.ok_or_else(|| {
-            SignerError::ConfigError(
-                "missing local keystore password; use --keystore-password, IBC_ATTESTOR_KEYSTORE_PASSWORD, or --empty-keystore-password"
-                    .to_string(),
-            )
+            SignerError::ConfigError("missing local keystore password".to_string())
         })?;
 
         info!(keystorePath = %with_expanded_home, "initalizing local signer");
