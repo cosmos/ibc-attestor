@@ -69,7 +69,7 @@ impl From<AttestorError> for Status {
             AttestorError::InvalidCommitment { .. }
             | AttestorError::AbiError(_)
             | AttestorError::MalformedCommitmentError(_) => Code::InvalidArgument,
-            AttestorError::PacketLimitExceeded { .. } => Code::ResourceExhausted,
+            AttestorError::PacketLimitExceeded { .. } => Code::InvalidArgument,
             AttestorError::SignerError(_) | AttestorError::SignerInitError(_) => Code::Internal,
             AttestorError::AdapterError(error) => match error {
                 AttestationAdapterError::InvalidHeight => Code::InvalidArgument,
