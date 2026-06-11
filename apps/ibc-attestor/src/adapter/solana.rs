@@ -2,7 +2,7 @@ use serde::Deserialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_ibc_types::Commitment;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::pubkey::{MAX_SEED_LEN, Pubkey};
 use std::str::FromStr;
 use tracing::{debug, error, info};
 
@@ -142,6 +142,8 @@ impl AttestationAdapter for SolanaAdapter {
     ) -> Result<Option<[u8; COMMITMENT_LEN]>, AttestationAdapterError> {
         debug!("fetching commitment from Solana chain");
 
+        validate_client_id_seed(&client_id)?;
+
         let (commitment_pda, _bump) = match commitment_type {
             CommitmentType::Packet => {
                 Commitment::packet_commitment_pda(&client_id, sequence, self.router_program_id)
@@ -203,5 +205,75 @@ impl AttestationAdapter for SolanaAdapter {
 
         debug!("commitment retrieved successfully");
         Ok(Some(commitment))
+    }
+}
+
+fn validate_client_id_seed(client_id: &str) -> Result<(), AttestationAdapterError> {
+    if client_id.len() > MAX_SEED_LEN {
+        return Err(AttestationAdapterError::CommitmentError(format!(
+            "Solana client ID seed length {} exceeds maximum PDA seed length {MAX_SEED_LEN}",
+            client_id.len(),
+        )));
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_adapter() -> SolanaAdapter {
+        SolanaAdapter {
+            client: RpcClient::new("http://127.0.0.1:0".to_string()),
+            router_program_id: Pubkey::new_from_array([1; 32]),
+        }
+    }
+
+    fn overlong_client_id() -> String {
+        "a".repeat(MAX_SEED_LEN + 1)
+    }
+
+    #[tokio::test]
+    async fn get_packet_commitment_rejects_overlong_client_id_before_pda_derivation() {
+        let result = test_adapter()
+            .get_commitment(overlong_client_id(), 1, 1, &[], CommitmentType::Packet)
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(AttestationAdapterError::CommitmentError(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn get_ack_commitment_rejects_overlong_client_id_before_pda_derivation() {
+        let result = test_adapter()
+            .get_commitment(overlong_client_id(), 1, 1, &[], CommitmentType::Ack)
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(AttestationAdapterError::CommitmentError(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn get_receipt_commitment_rejects_overlong_client_id_before_pda_derivation() {
+        let result = test_adapter()
+            .get_commitment(overlong_client_id(), 1, 1, &[], CommitmentType::Receipt)
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(AttestationAdapterError::CommitmentError(_))
+        ));
+    }
+
+    #[test]
+    fn validate_client_id_seed_accepts_max_seed_length() {
+        let client_id = "a".repeat(MAX_SEED_LEN);
+
+        assert!(validate_client_id_seed(&client_id).is_ok());
     }
 }
