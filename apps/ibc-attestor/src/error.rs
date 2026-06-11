@@ -121,12 +121,12 @@ mod tests {
     }
 
     #[test]
-    fn packet_limit_exceeded_maps_to_resource_exhausted() {
+    fn packet_limit_exceeded_maps_to_invalid_argument() {
         let status = Status::from(AttestorError::PacketLimitExceeded {
             count: 101,
             max: 100,
         });
-        assert_eq!(status.code(), Code::ResourceExhausted);
+        assert_eq!(status.code(), Code::InvalidArgument);
     }
 
     #[test]
