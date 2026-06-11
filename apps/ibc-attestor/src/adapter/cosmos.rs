@@ -161,8 +161,9 @@ impl CosmosAdapter {
             .await?;
 
         if response.received {
+            // NOTE: IBC-Go uses a fixed value of [1] to indicate packet receipt
             debug!("receipt commitment exists (packet was received)");
-            Ok(Some(vec![0xFF; 32]))
+            Ok(Some(vec![1_u8]))
         } else {
             debug!("receipt commitment not found (packet not received)");
             Ok(None)
