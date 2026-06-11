@@ -7,7 +7,9 @@ url = "https://ethereum-sepolia-rpc.publicnode.com"
 router_address = "0xff42b3db9f1040539a3741434e4b33b352fabd80"
 
 [signer]
-# Generate a key here by running the binary with `<binary> key generate`
+# Generate a password-protected key here with `<binary> key generate`.
+# The keystore password is prompted at startup or supplied with --keystore-password
+# or IBC_ATTESTOR_KEYSTORE_PASSWORD.
 keystore_path = "~/.ibc-attestor/ibc-attestor-keystore"
 
 [tracing]

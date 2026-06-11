@@ -124,9 +124,9 @@ Response shape matches `StateAttestation`; `attestedData` carries `(height, pack
 ## CLI
 
   ```
-  ibc_attestor server   --config <path> --chain-type <evm|solana|cosmos> [--signer-type <local|remote>]
-  ibc_attestor key generate [--keystore <path>]
-  ibc_attestor key show     [--show-private] [--show-public] [--keystore <path>]
+  ibc_attestor server   --config <path> --chain-type <evm|solana|cosmos> [--signer-type <local|remote>] [--keystore-password <password>|--empty-keystore-password]
+  ibc_attestor key generate [--keystore <path>] [--keystore-password <password>|--empty-keystore-password]
+  ibc_attestor key show     [--show-private] [--show-public] [--keystore <path>] [--keystore-password <password>|--empty-keystore-password]
   ```
 
 ## Configuration
@@ -152,8 +152,7 @@ service_name   = "ibc-attestor"
 sample_rate    = 1.0
 ```
 
-The `[adapter]` and `[signer]` tables are typed by `--chain-type` and `--signer-type` respectively. See [`docs/configuration.md`](docs/configuration.md) for
-the full field reference.
+The `[adapter]` and `[signer]` tables are typed by `--chain-type` and `--signer-type` respectively. Local keystore passwords are prompted interactively or supplied with `IBC_ATTESTOR_KEYSTORE_PASSWORD`; they are not stored in TOML. `--keystore-password` is available for automation but can expose the secret in process listings such as `ps`, so prefer the prompt or environment variable. Empty-password keystores require `--empty-keystore-password` or an explicitly empty `IBC_ATTESTOR_KEYSTORE_PASSWORD`. See [`docs/configuration.md`](docs/configuration.md) for the full field reference.
 
 ### Finality offset (EVM only)
 

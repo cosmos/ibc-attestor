@@ -4,8 +4,11 @@ use rand::thread_rng;
 use std::path::Path;
 
 /// Read a secp256k1 private key from keystore and return a `PrivateKeySigner`.
-pub fn read_from_keystore<P: AsRef<Path>>(path: P) -> Result<PrivateKeySigner, anyhow::Error> {
-    let signer = LocalSigner::decrypt_keystore(path, "")?;
+pub fn read_from_keystore<P: AsRef<Path>>(
+    path: P,
+    password: &str,
+) -> Result<PrivateKeySigner, anyhow::Error> {
+    let signer = LocalSigner::decrypt_keystore(path, password)?;
     Ok(signer)
 }
 
@@ -14,11 +17,12 @@ pub fn write_to_keystore<P: AsRef<Path>>(
     folder_path: P,
     name: &str,
     signer: PrivateKeySigner,
+    password: &str,
 ) -> Result<(), anyhow::Error> {
     let key = signer.credential().to_bytes();
 
     let mut rng = thread_rng();
-    let (_, id) = LocalSigner::encrypt_keystore(folder_path, &mut rng, key, "", Some(name))?;
+    let (_, id) = LocalSigner::encrypt_keystore(folder_path, &mut rng, key, password, Some(name))?;
     println!("id: {id}");
     Ok(())
 }
@@ -36,14 +40,46 @@ mod tests {
         let tmp_dir = tempdir().unwrap();
         let signer = PrivateKeySigner::random();
 
-        write_to_keystore(tmp_dir.path(), name, signer.clone()).unwrap();
+        write_to_keystore(tmp_dir.path(), name, signer.clone(), "").unwrap();
 
         fs::read_dir(tmp_dir.path()).unwrap().for_each(|entry| {
             println!("entry: {:?}", entry.unwrap().path());
         });
 
         let keystore_path = tmp_dir.path().join(name);
-        let loaded = read_from_keystore(&keystore_path).unwrap();
+        let loaded = read_from_keystore(&keystore_path, "").unwrap();
         assert_eq!(signer.address(), loaded.address());
+    }
+
+    #[test]
+    fn write_then_read_roundtrip_with_password() {
+        let name = "sec1_roundtrip_key_with_password";
+        let tmp_dir = tempdir().unwrap();
+        let signer = PrivateKeySigner::random();
+
+        write_to_keystore(
+            tmp_dir.path(),
+            name,
+            signer.clone(),
+            "correct horse battery staple",
+        )
+        .unwrap();
+
+        let keystore_path = tmp_dir.path().join(name);
+        let loaded = read_from_keystore(&keystore_path, "correct horse battery staple").unwrap();
+        assert_eq!(signer.address(), loaded.address());
+    }
+
+    #[test]
+    fn read_fails_with_wrong_password() {
+        let name = "sec1_wrong_password_key";
+        let tmp_dir = tempdir().unwrap();
+        let signer = PrivateKeySigner::random();
+
+        write_to_keystore(tmp_dir.path(), name, signer, "correct password").unwrap();
+
+        let keystore_path = tmp_dir.path().join(name);
+        let err = read_from_keystore(&keystore_path, "wrong password").unwrap_err();
+        assert!(err.to_string().contains("password") || err.to_string().contains("Mac"));
     }
 }
