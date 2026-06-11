@@ -160,12 +160,10 @@ impl CosmosAdapter {
             })
             .await?;
 
-        // Packet was received
         if response.received {
-            error!("packet was already received, cannot timeout");
-            Err(AttestationAdapterError::CommitmentError(format!(
-                "Packet seq={sequence} was already received, cannot timeout",
-            )))
+            // NOTE: IBC-Go uses a fixed value of [1] to indicate packet receipt
+            debug!("receipt commitment exists (packet was received)");
+            Ok(Some(vec![1_u8]))
         } else {
             debug!("receipt commitment not found (packet not received)");
             Ok(None)
