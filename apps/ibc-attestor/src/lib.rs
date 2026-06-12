@@ -43,6 +43,9 @@ use alloy_sol_types::SolType;
 pub use error::AttestorError;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 
+/// Maximum number of packets accepted in a single packet attestation request.
+pub const MAX_PACKETS_PER_ATTESTATION: usize = 100;
+
 /// A collection of IBC packets for batch attestation
 pub struct Packets(Vec<Packet>);
 

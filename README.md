@@ -118,6 +118,7 @@ grpcurl -plaintext -d '{
 - `commitmentType` is one of `COMMITMENT_TYPE_PACKET`, `COMMITMENT_TYPE_ACK`, `COMMITMENT_TYPE_RECEIPT`.
 - Each entry in `packets` is an ABI-encoded IBC v2 packet (bytes are base64-encoded in JSON gRPC). The attestor recomputes each commitment against on-chain state — membership
   for `PACKET`/`ACK`, non-membership for `RECEIPT` — and signs only if every packet validates.
+- A request may contain at most 100 packets. Larger batches are rejected before packet decoding or chain RPC queries.
 
 Response shape matches `StateAttestation`; `attestedData` carries `(height, packets[])` rather than `(height, timestamp)`.
 

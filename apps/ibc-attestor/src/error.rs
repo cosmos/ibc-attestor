@@ -50,6 +50,15 @@ pub enum AttestorError {
     /// Failed to decode commitment type
     #[error("MalformedCommitmentError: {0}")]
     MalformedCommitmentError(#[from] prost::UnknownEnumValue),
+
+    /// Too many packets in a single packet attestation request
+    #[error("Packet attestation request contains {count} packets, exceeding maximum of {max}")]
+    PacketLimitExceeded {
+        /// Requested packet count
+        count: usize,
+        /// Maximum packet count per request
+        max: usize,
+    },
 }
 
 impl From<AttestorError> for Status {
@@ -59,7 +68,8 @@ impl From<AttestorError> for Status {
             AttestorError::CommitmentNotFound { .. } => Code::NotFound,
             AttestorError::InvalidCommitment { .. }
             | AttestorError::AbiError(_)
-            | AttestorError::MalformedCommitmentError(_) => Code::InvalidArgument,
+            | AttestorError::MalformedCommitmentError(_)
+            | AttestorError::PacketLimitExceeded { .. } => Code::InvalidArgument,
             AttestorError::SignerError(_) | AttestorError::SignerInitError(_) => Code::Internal,
             AttestorError::AdapterError(error) => match error {
                 AttestationAdapterError::InvalidHeight => Code::InvalidArgument,
@@ -107,6 +117,15 @@ mod tests {
     #[test]
     fn abi_error_maps_to_invalid_argument() {
         let status = Status::from(AttestorError::AbiError(AbiError::Overrun));
+        assert_eq!(status.code(), Code::InvalidArgument);
+    }
+
+    #[test]
+    fn packet_limit_exceeded_maps_to_invalid_argument() {
+        let status = Status::from(AttestorError::PacketLimitExceeded {
+            count: 101,
+            max: 100,
+        });
         assert_eq!(status.code(), Code::InvalidArgument);
     }
 
