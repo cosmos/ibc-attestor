@@ -8,7 +8,7 @@ use tracing::{debug, error};
 
 use super::api::attestation_service_server::AttestationService;
 use crate::{
-    AttestorError, Packets,
+    AttestorError, MAX_PACKETS_PER_ATTESTATION, Packets,
     adapter::AttestationAdapter,
     attestation::{SignedAttestation, sign_attestation},
     attestation_payload::{AttestationPayload, AttestationType},
@@ -112,6 +112,8 @@ where
     ) -> Result<Response<PacketAttestationResponse>, Status> {
         let request_inner = request.into_inner();
         let height = request_inner.height;
+        request_inner.validate()?;
+
         let packets = Packets::try_from_abi_encoded(&request_inner.packets)?;
         let commitment_type =
             CommitmentType::try_from(request_inner.commitment_type).map_err(AttestorError::from)?;
@@ -133,6 +135,19 @@ where
         .await?;
 
         Ok(Response::from(attestation))
+    }
+}
+
+impl PacketAttestationRequest {
+    const fn validate(&self) -> Result<(), AttestorError> {
+        if self.packets.len() > MAX_PACKETS_PER_ATTESTATION {
+            return Err(AttestorError::PacketLimitExceeded {
+                count: self.packets.len(),
+                max: MAX_PACKETS_PER_ATTESTATION,
+            });
+        }
+
+        Ok(())
     }
 }
 
@@ -498,6 +513,37 @@ mod tests {
         let adapter = TestAdapter::with_finalized_height(10);
         let result = validate_height(&adapter, 11).await;
         assert!(matches!(result, Err(AttestorError::BlockNotFinalized)));
+    }
+
+    #[test]
+    fn packet_decoding_accepts_max_packet_count() {
+        let encoded = (0..MAX_PACKETS_PER_ATTESTATION)
+            .map(|sequence| test_packet(sequence as u64).abi_encode())
+            .collect::<Vec<_>>();
+
+        let packets =
+            crate::Packets::try_from_abi_encoded(&encoded).expect("max packet count should decode");
+
+        assert_eq!(packets.len(), MAX_PACKETS_PER_ATTESTATION);
+    }
+
+    #[test]
+    fn packet_request_validation_rejects_too_many_packets_before_decode() {
+        let request = PacketAttestationRequest {
+            packets: vec![Vec::new(); MAX_PACKETS_PER_ATTESTATION + 1],
+            height: 1,
+            commitment_type: CommitmentType::Packet.into(),
+        };
+
+        let result = request.validate();
+
+        assert!(matches!(
+            result,
+            Err(AttestorError::PacketLimitExceeded {
+                count,
+                max: MAX_PACKETS_PER_ATTESTATION,
+            }) if count == MAX_PACKETS_PER_ATTESTATION + 1
+        ));
     }
 
     #[tokio::test]
