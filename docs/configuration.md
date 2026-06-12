@@ -110,13 +110,14 @@ Defined by `RemoteSignerConfig` in `apps/ibc-attestor/src/signer/remote.rs`.
 
 | Field                         | Type             | Required | Description |
 |-------------------------------|------------------|----------|-------------|
-| `endpoint`                    | `Url`            | yes      | gRPC endpoint of the remote signer service (e.g. `http://localhost:50051`). |
+| `endpoint`                    | `Url`            | yes      | gRPC endpoint of the remote signer service (e.g. `https://remote-signer.example:50051`). Must use `https://` unless `allow_insecure_plaintext` is enabled for tests. |
 | `wallet_id`                   | `String`         | yes      | Identifier of the wallet to use for signing on the remote service. |
+| `allow_insecure_plaintext`    | `bool`           | no       | Allows `http://` plaintext gRPC. Defaults to `false`; intended only for non-production test environments. |
 | `service_account_token_path`  | `PathBuf` (optional) | no   | Path to a file containing a bare JWT (no JSON envelope) — the same format Kubernetes populates for `kubernetes.io/service-account-token`-typed Secrets. When set, the token is read on each signing request and sent as `Authorization: Bearer <token>`. |
 
 ```toml
 [signer]
-endpoint  = "http://remote-signer.example:50051"
+endpoint  = "https://remote-signer.example:50051"
 wallet_id = "ibc-attestor-prod"
 # service_account_token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 ```
