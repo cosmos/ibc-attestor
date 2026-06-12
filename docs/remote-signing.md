@@ -10,16 +10,26 @@ Settings live in the `[signer]` table of the attestor config (`--config <path>`)
 
 ```toml
 [signer]
-endpoint  = "http://remote-signer.example:50051"
+endpoint  = "https://remote-signer.example:50051"
 wallet_id = "ibc-attestor-prod"
 # service_account_token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"   # optional
 ```
 
 | Field                         | Required | Description |
 |-------------------------------|----------|-------------|
-| `endpoint`                    | yes      | gRPC URL of the remote signer service. Plaintext or TLS, per the scheme. |
+| `endpoint`                    | yes      | gRPC URL of the remote signer service. Must use `https://` unless `allow_insecure_plaintext` is explicitly enabled for tests. |
 | `wallet_id`                   | yes      | Identifier of the secp256k1 wallet on the signing service whose address is registered with the on-chain light client. Sent in every `SignRequest`. |
+| `allow_insecure_plaintext`    | no       | Allows `http://` plaintext gRPC. Defaults to `false`; intended only for non-production test environments. |
 | `service_account_token_path`  | no       | Path to a file containing a bare JWT (no JSON envelope) — the format Kubernetes populates `kubernetes.io/service-account-token`-typed Secrets in. When set, the file is re-read on each signing request and attached as `Authorization: Bearer <token>` on the gRPC metadata. |
+
+Plaintext remote signer transport is rejected by default. Test environments that intentionally run without TLS must opt in explicitly:
+
+```toml
+[signer]
+endpoint = "http://remote-signer.test:50051"
+wallet_id = "ibc-attestor-test"
+allow_insecure_plaintext = true
+```
 
 ## Authentication
 
@@ -107,7 +117,7 @@ Before pointing a production attestor at a remote signer, confirm end-to-end tha
 1. **Look up the expected address** via `GetWallet`. Record `formatted_address`; call this `EXPECTED_ADDR`.
 
    ```bash
-   grpcurl -plaintext \
+   grpcurl \
      -d '{"id": "<wallet_id>", "pubkey_type": "Ethereum"}' \
      remote-signer:50051 \
      signerservice.SignerService/GetWallet
@@ -121,7 +131,7 @@ Before pointing a production attestor at a remote signer, confirm end-to-end tha
    PROBE_HEX="01${INNER_HASH}"
    PROBE_B64=$(printf '%s' "$PROBE_HEX" | xxd -r -p | base64)
 
-   grpcurl -plaintext \
+   grpcurl \
      -d "{\"wallet_id\": \"<wallet_id>\", \"recoverable_message\": {\"message\": \"$PROBE_B64\"}}" \
      remote-signer:50051 \
      signerservice.SignerService/Sign

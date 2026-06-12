@@ -62,7 +62,7 @@ rpassword = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "fs"] }
 tokio-retry = { workspace = true }
 tower-http = { workspace = true, features = ["trace"] }
-tonic = { workspace = true, default-features = true }
+tonic = { workspace = true, default-features = true, features = ["tls-native-roots", "tls-ring"] }
 tonic-reflection = { workspace = true, default-features = true }
 prost = { workspace = true, default-features = true }
 prometheus = { workspace = true, default-features = true }
