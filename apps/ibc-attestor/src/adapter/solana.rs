@@ -210,10 +210,9 @@ impl AttestationAdapter for SolanaAdapter {
 
 fn validate_client_id_seed(client_id: &str) -> Result<(), AttestationAdapterError> {
     if client_id.len() > MAX_SEED_LEN {
-        return Err(AttestationAdapterError::CommitmentError(format!(
-            "Solana client ID seed length {} exceeds maximum PDA seed length {MAX_SEED_LEN}",
-            client_id.len(),
-        )));
+        return Err(AttestationAdapterError::ArgumentTooLong(
+            client_id.to_string(),
+        ));
     }
 
     Ok(())
@@ -236,13 +235,15 @@ mod tests {
 
     #[tokio::test]
     async fn get_packet_commitment_rejects_overlong_client_id_before_pda_derivation() {
+        let client_id = overlong_client_id();
         let result = test_adapter()
-            .get_commitment(overlong_client_id(), 1, 1, &[], CommitmentType::Packet)
+            .get_commitment(client_id.clone(), 1, 1, &[], CommitmentType::Packet)
             .await;
 
+        let error = result.expect_err("overlong client ID must be rejected");
         assert!(matches!(
-            result,
-            Err(AttestationAdapterError::CommitmentError(_))
+            error,
+            AttestationAdapterError::ArgumentTooLong(rejected) if rejected == client_id
         ));
     }
 
@@ -254,7 +255,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(AttestationAdapterError::CommitmentError(_))
+            Err(AttestationAdapterError::ArgumentTooLong(_))
         ));
     }
 
@@ -266,7 +267,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(AttestationAdapterError::CommitmentError(_))
+            Err(AttestationAdapterError::ArgumentTooLong(_))
         ));
     }
 

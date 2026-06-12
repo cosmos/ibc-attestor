@@ -72,7 +72,8 @@ impl From<AttestorError> for Status {
             | AttestorError::PacketLimitExceeded { .. } => Code::InvalidArgument,
             AttestorError::SignerError(_) | AttestorError::SignerInitError(_) => Code::Internal,
             AttestorError::AdapterError(error) => match error {
-                AttestationAdapterError::InvalidHeight => Code::InvalidArgument,
+                AttestationAdapterError::InvalidHeight
+                | AttestationAdapterError::ArgumentTooLong(_) => Code::InvalidArgument,
                 AttestationAdapterError::BlockNotFinalized
                 | AttestationAdapterError::CommitmentError(_) => Code::FailedPrecondition,
                 AttestationAdapterError::ConfigError(_)
@@ -135,6 +136,11 @@ mod tests {
             AttestationAdapterError::InvalidHeight,
         ));
         assert_eq!(invalid_height_status.code(), Code::InvalidArgument);
+
+        let argument_too_long_status = Status::from(AttestorError::AdapterError(
+            AttestationAdapterError::ArgumentTooLong("bad client id".to_string()),
+        ));
+        assert_eq!(argument_too_long_status.code(), Code::InvalidArgument);
 
         let not_finalized_status = Status::from(AttestorError::AdapterError(
             AttestationAdapterError::BlockNotFinalized,

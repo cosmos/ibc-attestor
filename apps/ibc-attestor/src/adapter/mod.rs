@@ -24,6 +24,9 @@ pub enum AttestationAdapterError {
     /// Bad height
     #[error("Invalid height used")]
     InvalidHeight,
+    /// Caller-provided argument exceeds a chain-specific length limit
+    #[error("Argument too long: {0}")]
+    ArgumentTooLong(String),
     /// Requested block is not finalized
     #[error("Block not finalized")]
     BlockNotFinalized,
