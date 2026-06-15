@@ -39,6 +39,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          # On workflow_dispatch, build the caller-specified ref. On push events
+          # inputs.tag is empty, which checkout treats as the triggering commit.
+          ref: ${{ inputs.tag }}
 
       - name: Prepare platform pair
         run: |
@@ -112,12 +116,10 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             DOCKER_TAG="${{ inputs.tag }}"
-          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            DOCKER_TAG="${{ github.head_ref }}"
           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             DOCKER_TAG="latest"
           else
-            # Non-main branch push or tag push (e.g. v1.0.0) → use ref_name
+            # Non-main branch push → use the branch name
             DOCKER_TAG="${{ github.ref_name }}"
           fi
           DOCKER_TAG=$(echo "$DOCKER_TAG" | sed 's/[^a-zA-Z0-9\.-]/-/g')
