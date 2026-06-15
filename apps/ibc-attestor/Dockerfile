@@ -1,6 +1,9 @@
-FROM rust:1.91-bookworm AS builder
+# Base toolchain image: Rust + protoc + cargo-chef. Stable layer, cached across builds.
+FROM rust:1.91-bookworm AS chef
 
-RUN apt-get update && apt-get install -y
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl unzip \
+    && rm -rf /var/lib/apt/lists/*
 
 # Default version on apt does not support optional fields
 ENV PROTOC_VERSION=3.15.8
@@ -16,12 +19,28 @@ RUN case "${TARGETARCH}" in \
  && mv /opt/protoc/include /usr/local/include/protoc \
  && rm -rf /tmp/protoc.zip /opt/protoc
 
+RUN cargo install cargo-chef --locked
 WORKDIR /app
+
+# Plan stage: distil the workspace into a dependency recipe. recipe.json only
+# changes when Cargo manifests or the lockfile change, not on app source edits.
+FROM chef AS planner
 COPY Cargo.toml Cargo.lock ./
 COPY apps apps
 COPY libs libs
 COPY proto proto
+RUN cargo chef prepare --recipe-path recipe.json
 
+# Build stage: compile dependencies from the recipe first. This layer is cached
+# and reused as long as dependencies are unchanged, so source-only changes skip
+# straight to the final (fast) application compile.
+FROM chef AS builder
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --locked --recipe-path recipe.json
+COPY Cargo.toml Cargo.lock ./
+COPY apps apps
+COPY libs libs
+COPY proto proto
 RUN cargo build --bin ibc_attestor --release --locked
 
 FROM debian:bookworm-slim
