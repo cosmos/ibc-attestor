@@ -36,7 +36,11 @@ RUN cargo chef prepare --recipe-path recipe.json
 # straight to the final (fast) application compile.
 FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --locked --recipe-path recipe.json
+# Note: no --locked here. cargo-chef rebuilds a skeleton workspace and re-serializes
+# the captured Cargo.lock, which cargo then flags as needing an update, so --locked
+# panics. Dependency versions stay pinned via the lock captured in the recipe, and the
+# final `cargo build --locked` below strictly enforces the real Cargo.lock.
+RUN cargo chef cook --release --recipe-path recipe.json
 COPY Cargo.toml Cargo.lock ./
 COPY apps apps
 COPY libs libs
