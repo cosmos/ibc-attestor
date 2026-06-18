@@ -1,6 +1,6 @@
 # IBC Attestor
 
-![IBC Attestor](.github/workflows/assets/cosmos-ibc-attestor-github.svg)
+![IBC Attestor](.github/assets/cosmos-ibc-attestor-github.svg)
 
 ## Overview
 
