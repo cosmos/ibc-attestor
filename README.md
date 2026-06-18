@@ -1,5 +1,7 @@
 # IBC Attestor
 
+![IBC Attestor](.github/workflows/assets/cosmos-ibc-attestor-github.svg)
+
 ## Overview
 
 The IBC Attestor is a lightweight, blockchain-agnostic attestation service that provides cryptographically signed attestations of blockchain state for IBC cross-chain communication. IBC Attestors publish attestations on demand and are stateless: consumers of the service must send requests to the service's gRPC server to receive attestations.
