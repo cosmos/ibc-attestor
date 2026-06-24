@@ -114,6 +114,12 @@ pub mod server {
         #[clap(long, value_enum, default_value = "local")]
         pub signer_type: SignerType,
 
+        /// Run as a HashiCorp go-plugin: bind the gRPC server to an ephemeral
+        /// port, serve the gRPC health service, and print the go-plugin
+        /// handshake line on stdout (logs are redirected to stderr).
+        #[clap(long, default_value = "false")]
+        pub plugin_mode: bool,
+
         /// Local keystore password source.
         #[command(flatten)]
         pub keystore_password: KeystorePasswordArgs,

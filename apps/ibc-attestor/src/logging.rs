@@ -8,7 +8,7 @@ use opentelemetry_sdk::{
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
     filter::{EnvFilter, LevelFilter},
-    fmt,
+    fmt::{self, time::UtcTime},
     layer::SubscriberExt,
     util::SubscriberInitExt,
 };
@@ -17,21 +17,13 @@ use crate::config::TracingConfig;
 
 const DEFAULT_SERVICE_NAME: &str = "ibc-attestor";
 
-/// Initialize structured logging with optional OTLP trace export.
+/// Initialize JSON logging with optional OTLP trace export. In `plugin_mode` logs
+/// go to stderr, since stdout carries the go-plugin handshake line.
 ///
-/// Sets up tracing-subscriber with:
-/// - JSON formatting with RFC 3339 UTC timestamps
-/// - OpenTelemetry layer for `trace_id` and `span_id` in logs
-/// - Environment variable configuration via `RUST_LOG` (defaults to "info")
-/// - W3C Trace Context propagation for distributed tracing
-/// - OTLP trace export when config is provided
-///
-/// Returns a [`TracingGuard`] that must be held for the lifetime of the application.
-/// When dropped, it flushes any pending spans to the OTLP endpoint.
-///
-/// Panics when an invalid [`TracingGuard`] is provided.
+/// The returned [`TracingGuard`] must be held for the process lifetime; on drop it
+/// flushes pending spans.
 #[must_use]
-pub fn init_logging(config: Option<TracingConfig>) -> TracingGuard {
+pub fn init_logging(config: Option<TracingConfig>, plugin_mode: bool) -> TracingGuard {
     let service = config.as_ref().map_or_else(
         || DEFAULT_SERVICE_NAME.to_string(),
         |c| c.service_name.clone(),
@@ -39,73 +31,55 @@ pub fn init_logging(config: Option<TracingConfig>) -> TracingGuard {
     let provider = config.map_or_else(
         || {
             SdkTracerProvider::builder()
-                .with_resource(
-                    Resource::builder()
-                        .with_service_name(service.clone())
-                        .build(),
-                )
+                .with_resource(Resource::builder().with_service_name(service.clone()).build())
                 .build()
         },
         |cfg| build_exporter_tracer(&cfg, &service),
     );
-    let tracer = provider.tracer(service);
     let env_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env_lossy();
-
-    let otel_layer = OpenTelemetryLayer::new(tracer);
-
+    let otel_layer = OpenTelemetryLayer::new(provider.tracer(service));
     let fmt_layer = fmt::layer()
         .json()
-        .with_timer(fmt::time::UtcTime::rfc_3339())
+        .with_timer(UtcTime::rfc_3339())
         .with_current_span(false)
-        .with_thread_ids(false)
         .with_line_number(true)
         .with_file(true)
         .with_target(false)
         .flatten_event(true)
         .with_ansi(false);
 
-    tracing_subscriber::registry()
-        .with(env_filter)
-        .with(otel_layer)
-        .with(fmt_layer)
-        .init();
+    let subscriber = tracing_subscriber::registry().with(env_filter).with(otel_layer);
+    if plugin_mode {
+        subscriber.with(fmt_layer.with_writer(std::io::stderr)).init();
+    } else {
+        subscriber.with(fmt_layer).init();
+    }
 
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
-
     TracingGuard { provider }
 }
 
 fn build_exporter_tracer(config: &TracingConfig, service_name: &str) -> SdkTracerProvider {
-    // Direct value comparison fails linting
     let sampler = if config.sample_rate.trunc() - 1.0 == 0.0 {
         Sampler::AlwaysOn
     } else {
         Sampler::TraceIdRatioBased(config.sample_rate)
     };
-
     let exporter = SpanExporter::builder()
         .with_tonic()
         .with_endpoint(config.otlp_endpoint.as_str())
         .build()
         .expect("failed to create OTLP exporter");
-
     SdkTracerProvider::builder()
         .with_sampler(sampler)
-        .with_resource(
-            Resource::builder()
-                .with_service_name(service_name.to_string())
-                .build(),
-        )
+        .with_resource(Resource::builder().with_service_name(service_name.to_string()).build())
         .with_batch_exporter(exporter)
         .build()
 }
 
-/// Guard that ensures the tracer provider is properly shut down.
-///
-/// When dropped, this guard flushes any pending spans to the OTLP endpoint
-/// and shuts down the tracer provider gracefully.
+/// Flushes and shuts down the tracer provider on drop.
 pub struct TracingGuard {
     provider: SdkTracerProvider,
 }

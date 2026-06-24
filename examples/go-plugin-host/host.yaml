@@ -1,0 +1,16 @@
+# Unified host config. The host owns this; the `attestor` section is passed through
+# opaquely and written to a temp TOML file the subprocess reads (so the host's YAML
+# and the attestor's TOML stay independent). The keystore password is supplied via
+# IBC_ATTESTOR_KEYSTORE_PASSWORD, not here.
+host:
+  log_level: info
+
+attestor:
+  server:
+    listen_addr: "127.0.0.1:8080"
+    health_addr: "127.0.0.1:8081"
+  adapter:
+    url: "https://ethereum-sepolia-rpc.publicnode.com"
+    router_address: "0xff42b3db9f1040539a3741434e4b33b352fabd80"
+  signer:
+    keystore_path: "./keystore/ibc-attestor-keystore"

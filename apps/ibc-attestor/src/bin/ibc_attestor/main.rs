@@ -11,6 +11,7 @@ use ibc_attestor::{
 };
 
 use tokio::{
+    net::TcpListener,
     signal::unix::{SignalKind, signal},
     sync::broadcast,
     task::JoinHandle,
@@ -135,12 +136,63 @@ fn run_servers(
     Ok((grpc_handle, health_handle))
 }
 
+/// `CORE|APP` protocol versions for the handshake line.
+const GO_PLUGIN_CORE_PROTOCOL_VERSION: u32 = 1;
+const GO_PLUGIN_APP_PROTOCOL_VERSION: u32 = 1;
+
+/// Emit the go-plugin handshake line: `CORE|APP|NETWORK|ADDR|PROTOCOL`.
+fn print_go_plugin_handshake(network: &str, addr: &str) {
+    use std::io::Write as _;
+    println!(
+        "{GO_PLUGIN_CORE_PROTOCOL_VERSION}|{GO_PLUGIN_APP_PROTOCOL_VERSION}|{network}|{addr}|grpc"
+    );
+    let _ = std::io::stdout().flush();
+}
+
+/// Plugin mode: serve gRPC over an ephemeral loopback port announced via the handshake.
+async fn run_servers_plugin(
+    config: RuntimeConfig,
+    shutdown_tx: &broadcast::Sender<()>,
+) -> Result<ServerHandles, anyhow::Error> {
+    let adapter_name = config.adapter.adapter_name();
+    let signer_name = config.signer.signer_name();
+    ibc_attestor::metrics::init(adapter_name, signer_name);
+    let health_addr = config.server.health_addr;
+
+    let grpc_shutdown_rx = shutdown_tx.subscribe();
+    let health_shutdown_rx = shutdown_tx.subscribe();
+
+    // Bind an ephemeral loopback port; go-plugin dials the address we announce.
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let grpc_addr = listener.local_addr()?;
+    print_go_plugin_handshake("tcp", &grpc_addr.to_string());
+
+    let grpc_handle = tokio::spawn(async move {
+        server::start_plugin(
+            listener,
+            config.adapter,
+            adapter_name,
+            config.signer,
+            signer_name,
+            grpc_shutdown_rx,
+        )
+        .await
+    });
+
+    let health_handle = tokio::spawn(async move {
+        health::start(health_addr, grpc_addr, health_shutdown_rx).await;
+    });
+
+    Ok((grpc_handle, health_handle))
+}
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let cli = AttestorCli::parse();
 
     match cli.command {
         Commands::Server(args) => {
+            let plugin_mode = args.plugin_mode;
             let chain_type = args.chain_type.into();
             let signer_type: RuntimeSignerType = args.signer_type.into();
             let local_keystore_password = match &signer_type {
@@ -168,12 +220,16 @@ async fn main() -> Result<(), anyhow::Error> {
                 local_keystore_password,
             )
             .await?;
-            let _tracing_guard = init_logging(config.tracing.clone());
+            let _tracing_guard = init_logging(config.tracing.clone(), plugin_mode);
 
             // Create shutdown broadcast channel
             let (shutdown_tx, _shutdown_rx) = broadcast::channel(1);
 
-            let (grpc_handle, health_handle) = run_servers(config, &shutdown_tx)?;
+            let (grpc_handle, health_handle) = if plugin_mode {
+                run_servers_plugin(config, &shutdown_tx).await?
+            } else {
+                run_servers(config, &shutdown_tx)?
+            };
 
             _ = wait_for_shutdown_signal().await;
             info!("shutdown signal received, starting graceful shutdown");

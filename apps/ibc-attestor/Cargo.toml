@@ -64,6 +64,8 @@ tokio-retry = { workspace = true }
 tower-http = { workspace = true, features = ["trace"] }
 tonic = { workspace = true, default-features = true, features = ["tls-native-roots", "tls-ring"] }
 tonic-reflection = { workspace = true, default-features = true }
+tonic-health = { workspace = true, default-features = true }
+tokio-stream = { workspace = true, features = ["net"] }
 prost = { workspace = true, default-features = true }
 prometheus = { workspace = true, default-features = true }
 warp = { workspace = true, features = ["server"] }
