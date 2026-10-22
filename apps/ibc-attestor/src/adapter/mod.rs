@@ -14,6 +14,9 @@ pub mod evm;
 mod retry;
 /// Solana Adatper
 pub mod solana;
+#[cfg(test)]
+mod test_tls;
+mod tls;
 
 /// Errors that can occur while working with attestation adapter
 #[derive(Debug, Error)]
@@ -144,6 +147,9 @@ impl AttestationAdapter for AdapterEnum {
 
 /// Attestation adapter methods needed to provide attestations for a given chain
 #[async_trait::async_trait]
+// clippy 1.99 (CI installs the latest stable) flags the `#[must_use]` that
+// async-trait 0.1.89 adds to the methods it generates.
+#[allow(clippy::double_must_use)]
 pub trait AttestationAdapter: Sync + Send + 'static {
     /// Fetch the height of the last finalized block. If there's no finalized
     /// block yet, it should return an error.

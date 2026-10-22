@@ -16,6 +16,9 @@ pub mod remote;
 /// allowing the attestor to use either a local keystore or a remote
 /// signing service.
 #[async_trait]
+// clippy 1.99 (CI installs the latest stable) flags the `#[must_use]` that
+// async-trait 0.1.89 adds to the methods it generates.
+#[allow(clippy::double_must_use)]
 pub trait Signer: Send + Sync + 'static {
     /// Sign a message and return the signature
     ///
@@ -32,6 +35,9 @@ pub trait Signer: Send + Sync + 'static {
 /// This trait provides a generic interface for constructing signers,
 /// similar to the `AdapterBuilder` pattern used for attestation adapters.
 #[async_trait]
+// clippy 1.99 (CI installs the latest stable) flags the `#[must_use]` that
+// async-trait 0.1.89 adds to the methods it generates.
+#[allow(clippy::double_must_use)]
 pub trait SignerBuilder {
     /// Configuration needed for signer
     type Config: Clone + Send + 'static;

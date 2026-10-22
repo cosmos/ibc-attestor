@@ -1,0 +1,14 @@
+# Build artifacts
+target/
+
+# VCS / CI
+.git/
+.github/
+
+# Docs and non-source assets
+docs/
+*.md
+LICENSE
+
+# Local editor / OS cruft
+.DS_Store

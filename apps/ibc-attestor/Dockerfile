@@ -49,9 +49,19 @@ RUN cargo build --bin ibc_attestor --release --locked
 
 FROM debian:bookworm-slim
 
+# The attestor's RPC clients trust the OS root certificates. The eMudhra fix is
+# rustls-webpki >= 0.103.16, which rejects any chain through the distrusted
+# eMudhra G3 intermediates by key, including cross-signed paths. Deselecting
+# "emSign ECC Root CA - G3" (removed from Mozilla's root store) is defence in
+# depth, and the build fails if it remains. All outbound TLS uses rustls;
+# libssl3 is only the runtime library for OpenSSL, which Solana's secp256r1
+# signature precompile links.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libssl3 \
+    && sed -i 's|^mozilla/emSign_ECC_Root_CA_-_G3\.crt$|!&|' /etc/ca-certificates.conf \
+    && update-ca-certificates --fresh \
+    && test ! -e /etc/ssl/certs/emSign_ECC_Root_CA_-_G3.pem \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -r -u 65532 -g nogroup nonroot
 

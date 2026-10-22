@@ -50,6 +50,7 @@ impl AdapterBuilder for EvmAdapterBuilder {
             "initializing EVM adapter"
         );
 
+        super::tls::warn_if_plaintext(&config.url);
         let client = RootProvider::new_http(config.url.clone());
         let router = routerInstance::new(config.router_address, client.clone());
 
