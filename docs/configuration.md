@@ -36,6 +36,8 @@ health_addr = "0.0.0.0:8081"
 
 The shape of this table is selected at startup by `--chain-type`. Each chain has its own fields.
 
+`url` accepts `http://` and `https://`. For `https://` endpoints, the server certificate is checked against the root certificates of the OS the attestor runs on, which in the Docker image means the image's CA bundle. See [TLS and trusted root certificates](#tls-and-trusted-root-certificates).
+
 ### EVM (`--chain-type evm`)
 
 Defined by `EvmAdapterConfig` in `apps/ibc-attestor/src/adapter/evm.rs`.
@@ -82,6 +84,41 @@ The adapter queries with `CommitmentConfig::finalized()` — Solana's native fin
 url               = "https://api.devnet.solana.com"
 router_program_id = "..."
 ```
+
+### TLS and trusted root certificates
+
+The attestor doesn't ship its own list of trusted certificate authorities. For `https://` RPC endpoints, all adapters (EVM, Cosmos and Solana) trust the root certificates in the **operating system's trust store**. The remote signer's `https://` endpoint uses the same store. Certificates are checked by rustls-webpki 0.103.16 or later, except for the EVM adapter on macOS and Windows, which hands certificate checks to the operating system.
+
+Where the roots come from depends on how the attestor runs:
+
+| Runtime | Trusted roots |
+|---------|---------------|
+| Docker image (`apps/ibc-attestor/Dockerfile`) | Debian's `ca-certificates` package installed in the image (`/etc/ssl/certs`). Updating the trusted roots means rebuilding the image. |
+| Native binary on Linux | The host's system CA bundle, e.g. `/etc/ssl/certs` from the distribution's `ca-certificates` package. |
+| Native binary on macOS | The system Keychain. |
+
+When running the attestor as a native binary, keep the host's CA certificates updated to the latest release. Certificate authorities are added to and removed from the root stores over time, and the attestor trusts whatever the host has installed. On Linux, update the `ca-certificates` package regularly (e.g. `apt-get update && apt-get install --only-upgrade ca-certificates` on Debian/Ubuntu). On macOS, root certificate updates come with system updates.
+
+On every platform, the `SSL_CERT_FILE` (a PEM file) and `SSL_CERT_DIR` (a colon-separated list of directories) environment variables **replace** the system store for the Cosmos and Solana adapters and the remote signer, and for the EVM adapter on Linux. If either is set, only those certificates are trusted.
+
+To trust a private CA, for example for an internal RPC node:
+
+- **Docker:** build a derived image that adds the CA. The image runs as `nonroot`, so switch to `root` to install it:
+
+  ```dockerfile
+  FROM ghcr.io/cosmos/ibc-attestor:<version>
+  USER root
+  COPY my-ca.crt /usr/local/share/ca-certificates/my-ca.crt
+  RUN update-ca-certificates
+  USER nonroot:nogroup
+  ```
+
+  Alternatively, mount a PEM bundle and point `SSL_CERT_FILE` at it. That bundle must contain the public CAs too, because it replaces the image's store.
+- **Native:** add the CA to the host's trust store.
+
+If an adapter's `url` uses `https://` and no usable root certificates are found, the Cosmos and Solana adapters fail at startup with `no usable root certificates found in the OS trust store`. Certificates that fail to load or parse are logged as warnings.
+
+`http://` endpoints verify no certificates and need no root certificates. The attestor logs a warning when an `http://` endpoint points at a non-local host, because responses can be read or changed in transit. The Cosmos and Solana adapters don't follow redirects from `http://` endpoints, so configure the URL the node actually serves on, e.g. its `https://` URL when the node redirects there.
 
 ---
 

@@ -36,6 +36,21 @@ alloy-provider = { workspace = true, default-features = false, features = [
 alloy-contract = { workspace = true, default-features = false }
 
 tendermint-rpc = { workspace = true, features = ["http-client"] }
+# The Cosmos and Solana adapters verify certificates with rustls 0.23 /
+# rustls-webpki 0.103 against the OS root certificates. `tendermint-rpc` is built
+# on reqwest 0.11 / rustls 0.21 (rustls-webpki 0.101), hence the 0.21 bridge.
+reqwest_0_11 = { workspace = true, features = ["rustls-tls-manual-roots"] }
+# `dangerous_configuration` is only for the Cosmos adapter's verifier bridge
+# (`with_custom_certificate_verifier`); don't use it to relax verification.
+rustls_0_21 = { workspace = true, features = ["dangerous_configuration", "tls12"] }
+rustls = { workspace = true, features = ["std", "ring"] }
+rustls-native-certs = { workspace = true }
+# Certificate path validation behind `rustls`. 0.103.16 is the minimum release
+# that distrusts the eMudhra (emSign) G3 intermediate CAs. The code doesn't use
+# this crate directly; the dependency is the version floor. While it's here,
+# Cargo can't resolve rustls 0.23's rustls-webpki below 0.103.16, so don't
+# remove it as unused.
+rustls-webpki = { workspace = true }
 tendermint = { workspace = true, features = ["std"] }
 
 borsh = { workspace = true, default-features = false, features = ["derive"] }
@@ -46,7 +61,13 @@ sha3 = { workspace = true, default-features = false }
 toml = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
 
-solana-client = { workspace = true }
+# Depend on solana-rpc-client, not solana-client: solana-client also pulls in
+# solana-pubsub-client, whose WebSocket client verifies certificates with
+# rustls 0.21 / rustls-webpki 0.101 and the bundled webpki roots.
+solana-rpc-client = { workspace = true }
+# solana-rpc-client only trusts reqwest's bundled webpki roots; a preconfigured
+# rustls client config lets the Solana adapter trust the OS root certificates.
+reqwest = { workspace = true, features = ["rustls-tls-manual-roots"] }
 solana-commitment-config = { workspace = true, default-features = false }
 solana-sdk = { workspace = true }
 
@@ -87,6 +108,11 @@ ibc-eureka-solidity-types = { workspace = true, default-features = true, feature
     "rpc",
 ] }
 ibc-eureka-utils = { workspace = true, default-features = true }
+
+[dev-dependencies]
+rcgen = { workspace = true, features = ["crypto", "ring"] }
+tokio-rustls = { workspace = true, features = ["ring", "tls12"] }
+tokio = { workspace = true, features = ["net", "io-util", "time"] }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }

@@ -1,13 +1,20 @@
 use serde::Deserialize;
-use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_ibc_types::Commitment;
+use solana_rpc_client::{
+    http_sender::HttpSender, nonblocking::rpc_client::RpcClient, rpc_client::RpcClientConfig,
+};
 use solana_sdk::pubkey::{MAX_SEED_LEN, Pubkey};
-use std::str::FromStr;
+use std::{str::FromStr, time::Duration};
 use tracing::{debug, error, info};
 
+use rustls::RootCertStore;
+use url::Url;
+
 use crate::adapter::{
-    AdapterBuilder, AttestationAdapter, AttestationAdapterError, retry::with_retry_backoff,
+    AdapterBuilder, AttestationAdapter, AttestationAdapterError,
+    retry::with_retry_backoff,
+    tls::{self, TlsError},
 };
 use crate::rpc::api::CommitmentType;
 
@@ -16,6 +23,9 @@ const ANCHOR_DISCRIMINATOR_LEN: usize = 8;
 
 /// Commitment length
 const COMMITMENT_LEN: usize = 32;
+
+/// Same request timeout `solana-rpc-client` applies to the clients it builds itself.
+const RPC_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Configuration for the Solana blockchain client adapter
 #[derive(Clone, Debug, Deserialize)]
@@ -51,7 +61,16 @@ impl AdapterBuilder for SolanaAdapterBuilder {
             "initializing Solana adapter"
         );
 
-        let client = RpcClient::new(config.url.clone());
+        let client = rpc_client(config.url.clone()).map_err(|err| {
+            error!(
+                rpcUrl = %config.url,
+                error = %err,
+                "failed to initialize Solana client"
+            );
+            AttestationAdapterError::ConfigError(format!(
+                "Solana client couldn't be initialized: {err}"
+            ))
+        })?;
 
         let router_program_id = Pubkey::from_str(&config.router_program_id).map_err(|err| {
             error!(
@@ -75,6 +94,71 @@ impl AdapterBuilder for SolanaAdapterBuilder {
             router_program_id,
         })
     }
+}
+
+/// Errors that can occur while building the Solana RPC client.
+#[derive(Debug, thiserror::Error)]
+enum RpcClientError {
+    /// The TLS configuration could not be built.
+    #[error(transparent)]
+    Tls(#[from] TlsError),
+    /// The underlying HTTP client could not be built.
+    #[error("failed to build HTTP client: {0}")]
+    Http(#[from] reqwest::Error),
+}
+
+/// Builds an RPC client like `RpcClient::new`, but verifying HTTPS connections
+/// with rustls-webpki 0.103 against the OS root certificates instead of
+/// reqwest's bundled webpki roots.
+///
+/// Plain HTTP endpoints verify no certificates, so they don't require OS root
+/// certificates. Their client trusts no roots and refuses redirects, so it
+/// never makes an HTTPS connection. Redirects fail as errors rather than
+/// returning the `3xx` response, which `HttpSender` would panic on.
+fn rpc_client(url: String) -> Result<RpcClient, RpcClientError> {
+    let parsed = Url::parse(&url);
+    if parsed.as_ref().is_ok_and(|url| url.scheme() == "https") {
+        return rpc_client_with_roots(url, tls::native_roots()?);
+    }
+    if let Ok(parsed) = &parsed {
+        tls::warn_if_plaintext(parsed);
+    }
+    build_rpc_client(
+        url,
+        reqwest::Client::builder()
+            .tls_built_in_root_certs(false)
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                attempt.error("redirects from plain-HTTP endpoints are not followed")
+            })),
+    )
+}
+
+/// Builds an RPC client like `RpcClient::new` whose HTTPS connections are
+/// verified by rustls-webpki 0.103 against `roots`.
+fn rpc_client_with_roots(url: String, roots: RootCertStore) -> Result<RpcClient, RpcClientError> {
+    let tls_config = tls::client_config(tls::verifier(roots)?)?;
+    build_rpc_client(
+        url,
+        reqwest::Client::builder().use_preconfigured_tls(tls_config),
+    )
+}
+
+/// Builds an RPC client from `builder` with the same headers and timeouts as
+/// `RpcClient::new`.
+fn build_rpc_client(
+    url: String,
+    builder: reqwest::ClientBuilder,
+) -> Result<RpcClient, RpcClientError> {
+    let client = builder
+        .default_headers(HttpSender::default_headers())
+        .timeout(RPC_TIMEOUT)
+        .pool_idle_timeout(RPC_TIMEOUT)
+        .build()?;
+
+    Ok(RpcClient::new_sender(
+        HttpSender::new_with_client(url, client),
+        RpcClientConfig::with_commitment(CommitmentConfig::default()),
+    ))
 }
 
 #[async_trait::async_trait]
@@ -220,7 +304,12 @@ fn validate_client_id_seed(client_id: &str) -> Result<(), AttestationAdapterErro
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
+    use crate::adapter::test_tls::{
+        Reply, TestCa, assert_not_connected, redirect_target, serve_http,
+    };
 
     fn test_adapter() -> SolanaAdapter {
         SolanaAdapter {
@@ -276,5 +365,70 @@ mod tests {
         let client_id = "a".repeat(MAX_SEED_LEN);
 
         assert!(validate_client_id_seed(&client_id).is_ok());
+    }
+
+    fn rpc_client_trusting(ca: &TestCa, port: u16) -> RpcClient {
+        let mut roots = RootCertStore::empty();
+        roots.add(ca.der().clone()).unwrap();
+        rpc_client_with_roots(format!("https://localhost:{port}"), roots).unwrap()
+    }
+
+    #[tokio::test]
+    async fn rpc_client_accepts_certificate_from_trusted_root() {
+        let ca = TestCa::new("Trusted CA");
+        let port = ca.serve("localhost", json!(42)).await;
+
+        let slot = rpc_client_trusting(&ca, port).get_slot().await;
+        assert!(
+            matches!(slot, Ok(42)),
+            "request to the trusted server failed"
+        );
+    }
+
+    #[tokio::test]
+    async fn rpc_client_rejects_certificate_from_untrusted_root() {
+        let trusted = TestCa::new("Trusted CA");
+        let port = TestCa::new("Untrusted CA")
+            .serve("localhost", json!(42))
+            .await;
+
+        let err = rpc_client_trusting(&trusted, port)
+            .get_slot()
+            .await
+            .unwrap_err();
+        assert!(
+            format!("{err:?}").contains("UnknownIssuer"),
+            "expected an UnknownIssuer rejection"
+        );
+    }
+
+    #[tokio::test]
+    async fn rpc_client_rejects_certificate_for_wrong_hostname() {
+        let ca = TestCa::new("Trusted CA");
+        let port = ca.serve("example.com", json!(42)).await;
+
+        let err = rpc_client_trusting(&ca, port).get_slot().await.unwrap_err();
+        assert!(
+            format!("{err:?}").contains("NotValidForName"),
+            "expected a NotValidForName rejection"
+        );
+    }
+
+    #[tokio::test]
+    async fn rpc_client_connects_over_plain_http() {
+        let port = serve_http(Reply::Result(json!(42))).await;
+
+        let client = rpc_client(format!("http://localhost:{port}")).unwrap();
+        assert_eq!(client.get_slot().await.unwrap(), 42);
+    }
+
+    #[tokio::test]
+    async fn rpc_client_does_not_follow_redirect_to_https() {
+        let (target, target_url) = redirect_target().await;
+        let port = serve_http(Reply::Redirect(target_url)).await;
+
+        let client = rpc_client(format!("http://localhost:{port}")).unwrap();
+        client.get_slot().await.unwrap_err();
+        assert_not_connected(&target).await;
     }
 }

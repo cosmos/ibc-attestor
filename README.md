@@ -49,6 +49,8 @@ grpcurl -plaintext localhost:8080 describe ibc_attestor.AttestationService
 
 To build the container image instead of running natively: `make build-attestor-image` (produces `attestor-local`).
 
+HTTPS connections to RPC endpoints trust the OS root certificates: the host's trust store when running natively, the image's CA bundle in Docker. When running the binary natively, keep the host's CA certificates updated to the latest release. See [TLS and trusted root certificates](docs/configuration.md#tls-and-trusted-root-certificates).
+
 ## Calling the gRPC API
 
 Service: `ibc_attestor.AttestationService` ([proto](proto/ibc_attestor/ibc_attestor.proto)).
@@ -183,6 +185,7 @@ Within the context of IBC relaying IBC attestors are an off-chain trusted servic
 
 At the level of individual attestor instances we make the following trust assumptions:
 - RPC endpoints provide accurate data
+- The OS trust store (the host's, or the Docker image's CA bundle) contains only CAs trusted to identify RPC endpoints. `http://` endpoints are unauthenticated and should only be used on trusted networks. See [TLS and trusted root certificates](docs/configuration.md#tls-and-trusted-root-certificates)
 - Private key is kept secure
 
 Attestor instances can make the following security guarantees:
